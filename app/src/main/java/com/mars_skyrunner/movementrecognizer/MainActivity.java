@@ -54,6 +54,8 @@ public class MainActivity extends AppCompatActivity {
 
         Log.v(LOG_TAG,"MODEL TRAINED");
 
+        //COMMIT TEST
+
 
     }
 
