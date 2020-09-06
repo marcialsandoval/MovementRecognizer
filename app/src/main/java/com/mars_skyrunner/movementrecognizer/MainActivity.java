@@ -52,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
         File dir = getOutputDirectory();
         model = getMovementModel(dir);
 
+
         Log.v(LOG_TAG,"MODEL TRAINED");
 
         //COMMIT TEST
