@@ -7,23 +7,38 @@ import libsvm.svm_model;
 import libsvm.svm_node;
 import libsvm.svm_parameter;
 import libsvm.svm_problem;
-import umich.cse.yctung.androidlibsvm.LibSVM;
+import android.app.LoaderManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.CursorLoader;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.Loader;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import com.mars_skyrunner.movementrecognizer.data.SensorReadingContract;
 import com.microsoft.band.BandClient;
-
+import com.microsoft.band.ConnectionState;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Random;
 import java.util.StringTokenizer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -55,10 +70,100 @@ public class MainActivity extends AppCompatActivity {
 
         Log.v(LOG_TAG,"MODEL TRAINED");
 
-        //COMMIT TEST
+        BandSensorsSubscriptionLoader sensortask = new BandSensorsSubscriptionLoader(this);
+        sensortask.execute();
 
+        //Register broadcast receiver to print values on screen from BandSensorsSubscriptionLoader
+        registerReceiver(displayVaueReceiver, new IntentFilter(Constants.DISPLAY_VALUE));
+
+        //Register broadcast receiver to display timer
+        registerReceiver(timeReceiver, new IntentFilter(getClass().getPackage() + ".BROADCAST"));
+
+
+        clock = findViewById(R.id.minutes);
+
+        sampleButton = (ToggleButton) findViewById(R.id.sample_btn);
+        sampleButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                TextView predictionTextView = (TextView) findViewById(R.id.prediction);
+                predictionTextView.setBackgroundColor(getResources().getColor(R.color.white));
+                predictionTextView.setText("sampling...");
+                sampleButton.setEnabled(false);
+
+                Log.v(LOG_TAG,"sampleButton setOnClickListener");
+                clock.setText("" + TIMER_DURATION);
+                task = new FutureTask(new CounterCallable(MainActivity.this,0, TIMER_DURATION,1));
+
+                ExecutorService pool = Executors.newSingleThreadExecutor();
+                pool.submit(task);
+                pool.shutdown();
+
+                timeBasedCSVDate = System.currentTimeMillis();
+
+            }
+        });
 
     }
+
+
+    private BroadcastReceiver timeReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            long seconds = intent.getExtras().getLong(getClass().getPackage() + ".TIME");
+            clock.setText("" + (TIMER_DURATION - seconds));
+
+            Log.v(LOG_TAG, " timeReceiver seconds: " + seconds);
+
+            if(seconds == TIMER_DURATION){
+
+                Log.v(LOG_TAG, "timeReceiver  seconds == TIMER_DURATION " );
+
+                showLoadingView(true);
+
+                resetTimer();
+                sampleButton.setEnabled(true);
+                sampleButton.setChecked(false);
+
+                Bundle extraBundle = new Bundle();
+                extraBundle.putLong(Constants.SENSOR_TIME, timeBasedCSVDate);
+
+
+                getLoaderManager().restartLoader(Constants.CREATE_CSV_LOADER, extraBundle, saveDataCursorLoader);
+
+            }
+
+        }
+
+
+    };
+
+    private void resetTimer() {
+
+        clock.setText("");
+
+    }
+
+
+    private BroadcastReceiver displayVaueReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            String value = intent.getStringExtra(Constants.VALUE);
+
+            Log.v(LOG_TAG, "displayVaueReceiver: value: " + value);
+
+            appendToUI(value , Constants.BAND_STATUS);
+
+        }
+
+
+    };
+
 
     /**
      *Helper method to show loader on screen.
@@ -137,8 +242,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         svm_parameter param = new svm_parameter();
-        // default values
 
+        // default values
         param.svm_type = svm_parameter.C_SVC;
         param.kernel_type = svm_parameter.LINEAR;
         param.C = 0.03125;
@@ -157,7 +262,6 @@ public class MainActivity extends AppCompatActivity {
 
         // build model & classify
         svm_model model = svm.svm_train(prob, param);
-        //            Log.v(LOG_TAG,"MODEL TRAINED");
 
         return model;
     }
@@ -226,5 +330,606 @@ public class MainActivity extends AppCompatActivity {
         return trainLabelsDataset;
     }
 
+
+    private void appendToUI(String value , String sensor) {
+
+        TextView textView = (TextView)findViewById(R.id.stts);
+        textView.setText(value);
+
+    }
+
+
+    private LoaderManager.LoaderCallbacks<Cursor> saveDataCursorLoader
+            = new LoaderManager.LoaderCallbacks<Cursor>() {
+
+        @Override
+        public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
+
+            Log.v(LOG_TAG,"SAMPLE BASED CSV");
+
+            // Define a projection that specifies the columns from the table we care about.
+            String[] projection3 = {
+                    "MAX(" + SensorReadingContract.ReadingEntry.COLUMN_SAMPLE_RATE + ")",
+                    SensorReadingContract.ReadingEntry.COLUMN_SENSOR_ID
+            };
+
+            String selection3 = SensorReadingContract.ReadingEntry.COLUMN_TIME + ">?";
+            //String selection2 = null;
+
+            String selectionArg3 = "" + timeBasedCSVDate;
+
+            String[] selectionArgs3 = {selectionArg3};
+            //String[] selectionArgs2 = null;
+
+            String sortOrder3 = SensorReadingContract.ReadingEntry.COLUMN_TIME;
+            //String sortOrder2 = ReadingEntry._ID;
+
+            return new CursorLoader(MainActivity.this,   // Parent activity context
+                    SensorReadingContract.ReadingEntry.CONTENT_URI,   // Provider content URI to query
+                    projection3,             // Columns to include in the resulting Cursor
+                    selection3,                   //  selection clause
+                    selectionArgs3,                   //  selection arguments
+                    sortOrder3);                  //  sort order
+
+
+        }
+
+        @Override
+        public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
+
+            Log.v(LOG_TAG, "saveDataCursorLoader: onLoadFinished");
+            Log.v(LOG_TAG, "SAMPLE BASED CSV");
+
+
+            try {
+
+                int rowcount = c.getCount();
+                int colcount = c.getColumnCount();
+
+                Log.v(LOG_TAG, "rowcount: " + rowcount);
+                Log.v(LOG_TAG, "colcount: " + colcount);
+
+                if (rowcount > 0) {
+
+                    c.moveToFirst();
+                    c.moveToPosition(0);
+                    String maxSampleRate = c.getString(0).trim();
+                    String maxSampleRateSensorID = c.getString(1).trim();
+
+                    Log.v(LOG_TAG,"Max Sample Rate Sensor ID : " + maxSampleRateSensorID);
+
+                    Bundle bundle = new Bundle();
+                    bundle.putString("maxSampleRate", maxSampleRate);
+                    bundle.putString("maxSampleRateSensorID", maxSampleRateSensorID);
+
+                    // Kick off the  loader
+                    getLoaderManager().restartLoader(Constants.SAMPLE_BASED_LOADER, bundle, SampleBasedCSVFileLoader);
+
+
+                    //Save datapoint loader destroyed, so that if user comes back from
+                    //CSV file viewer, it does not create a new one
+                    getLoaderManager().destroyLoader(Constants.CREATE_CSV_LOADER);
+
+                } else{
+                    //Save datapoint loader destroyed, so that if user comes back from
+                    //CSV file viewer, it does not create a new one
+                    getLoaderManager().destroyLoader(Constants.CREATE_CSV_LOADER);
+                    Toast.makeText(MainActivity.this,"No records to export CSV", Toast.LENGTH_SHORT).show();
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                Log.e(LOG_TAG, "FileWriter IOException: " + e.toString());
+            }
+
+        }
+
+        @Override
+        public void onLoaderReset(Loader<Cursor> loader) {
+
+            Log.v(LOG_TAG, "saveDataCursorLoader: onLoaderReset");
+
+        }
+
+    };
+
+
+    private LoaderManager.LoaderCallbacks<Cursor> SampleBasedCSVFileLoader
+            = new LoaderManager.LoaderCallbacks<Cursor>() {
+
+        //Once the max sample rate has been selected, proceed to retrieve samples timestamps
+
+        Context mContext = MainActivity.this;
+
+        @Override
+        public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
+
+            Log.v(LOG_TAG, "SampleBasedCSVFileLoader: onCreateLoader");
+
+            // Define a projection that specifies the columns from the table we care about.
+            String[] projection = {
+                    SensorReadingContract.ReadingEntry._ID,
+                    SensorReadingContract.ReadingEntry.COLUMN_TIME,
+                    SensorReadingContract.ReadingEntry.COLUMN_SAMPLE_RATE,
+                    SensorReadingContract.ReadingEntry.COLUMN_SENSOR_ID,
+                    SensorReadingContract.ReadingEntry.COLUMN_SENSOR_VALUE};
+
+            String sortOrder = SensorReadingContract.ReadingEntry._ID;
+
+            // This loader will execute the ContentProvider's query method on a background thread
+            //<> : Not equal to
+
+            String selection = SensorReadingContract.ReadingEntry.COLUMN_SAMPLE_RATE + "=? AND " + SensorReadingContract.ReadingEntry.COLUMN_TIME + ">? AND " + SensorReadingContract.ReadingEntry.COLUMN_SENSOR_ID + "=?";
+
+            String saveTimeSelecionArg = "" + timeBasedCSVDate;
+
+            String[] selectionArgs = {bundle.getString("maxSampleRate"), saveTimeSelecionArg, bundle.getString("maxSampleRateSensorID")};
+
+            return new CursorLoader(mContext,   // Parent activity context
+                    SensorReadingContract.ReadingEntry.CONTENT_URI,   // Provider content URI to query
+                    projection,             // Columns to include in the resulting Cursor
+                    selection,                   //  selection clause
+                    selectionArgs,                   //  selection arguments
+                    sortOrder);                  //  sort order
+
+        }
+
+        @Override
+        public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
+            Log.v(LOG_TAG, "SampleBasedCSVFileLoader: onLoadFinished");
+
+            //sampleTimeStamps stores sample time stamps that are going to be searched for all sensors,
+            // in order to concatenate
+            // each sensor reading into a single vector for each timestamp
+
+            sampleTimeStamps = new ArrayList<>();
+
+            try {
+
+                int rowcount = c.getCount();
+
+                if (rowcount > 0) {
+
+                    c.moveToFirst();
+
+                    for (int i = 0; i < rowcount; i++) {
+
+                        c.moveToPosition(i);
+
+                        long timeStamp = Long.parseLong(c.getString(1).trim());
+                        sampleTimeStamps.add(timeStamp);
+
+                    }
+
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                Log.e(LOG_TAG, "FileWriter IOException: " + e.toString());
+            }
+
+            timeStampReference = sampleTimeStamps.get(0);
+
+            for (int i= 0; i< sampleTimeStamps.size();i++){
+                Log.v(LOG_TAG,"CSV TIME STAMP: " + (sampleTimeStamps.get(i) - timeStampReference));
+            }
+
+            long minTime = sampleTimeStamps.get(0);
+            long maxTime;
+
+            maxTime = sampleTimeStamps.get((0 + 1));
+
+            sampleTimeStampsIterator = 0;
+
+            Bundle bundle = new Bundle();
+            bundle.putLong("minTime", minTime);
+            bundle.putLong("maxTime", maxTime);
+
+
+            // Kick off the  loader
+            getLoaderManager().restartLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER, bundle, timeStampSensorReadingLoader);
+
+            //Save datapoint loader destroyed, so that if user comes back from
+            //CSV file viewer, it does not create a new one
+            getLoaderManager().destroyLoader(Constants.SAMPLE_BASED_LOADER);
+
+        }
+
+        @Override
+        public void onLoaderReset(Loader<Cursor> loader) {
+            Log.v(LOG_TAG, "SampleBasedCSVFileLoader: onLoaderReset");
+        }
+
+    };
+
+
+    private LoaderManager.LoaderCallbacks<Cursor> timeStampSensorReadingLoader
+            = new LoaderManager.LoaderCallbacks<Cursor>() {
+
+
+        @Override
+        public Loader<Cursor> onCreateLoader(int id, Bundle bundle) {
+
+            Log.v(LOG_TAG, "timeStampSensorReadingLoader: onCreateLoader");
+
+            long minTime = bundle.getLong("minTime");
+            long maxTime = bundle.getLong("maxTime");
+
+            Log.v(LOG_TAG,"timeStampSensorReadingLoader: minTime: " + minTime);
+            Log.v(LOG_TAG,"timeStampSensorReadingLoader: maxTime: " + maxTime);
+
+            if (minTime != maxTime) {
+
+                // Define a projection that specifies the columns from the table we care about.
+                String[] projection = {
+                        SensorReadingContract.ReadingEntry._ID,
+                        SensorReadingContract.ReadingEntry.COLUMN_TIME,
+                        SensorReadingContract.ReadingEntry.COLUMN_SAMPLE_RATE,
+                        SensorReadingContract.ReadingEntry.COLUMN_SENSOR_ID,
+                        SensorReadingContract.ReadingEntry.COLUMN_SENSOR_VALUE};
+
+                String sortOrder = SensorReadingContract.ReadingEntry._ID;
+
+                // This loader will execute the ContentProvider's query method on a background thread
+
+                String selection = SensorReadingContract.ReadingEntry.COLUMN_TIME + ">=?  AND " + SensorReadingContract.ReadingEntry.COLUMN_TIME + "<?";
+
+                String[] selectionArgs = {("" + minTime), ("" + maxTime)};
+
+                return new CursorLoader(MainActivity.this,   // Parent activity context
+                        SensorReadingContract.ReadingEntry.CONTENT_URI,   // Provider content URI to query
+                        projection,             // Columns to include in the resulting Cursor
+                        selection,                   //  selection clause
+                        selectionArgs,                   //  selection arguments
+                        sortOrder);                  //  sort order
+
+            }
+
+            return  null;
+
+
+        }
+
+        @Override
+        public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
+
+            Log.v(LOG_TAG, "timeStampSensorReadingLoader: onLoadFinished ");
+
+            Bundle b = c.getExtras();
+
+            CursorLoader p = (CursorLoader) loader;
+            String[] selArgs = p.getSelectionArgs();
+            String timeStamp = selArgs[0];
+
+            ArrayList<Integer> selectedSensorID = getSelectedSensorID();
+            String[] sensorReadings = new String[selectedSensorID.size()];
+
+            FileWriter fw2 = null;
+
+            try {
+
+                int rowcount = c.getCount();
+                int colcount = c.getColumnCount();
+
+                Log.v(LOG_TAG, "rowcount: " + rowcount);
+                Log.v(LOG_TAG, "colcount: " + colcount);
+
+                if (rowcount > 0) {
+
+                    sensorReadings = getSensorReadings(c , selectedSensorID);
+                    String values = "";
+
+                    for (int i = 0 ; i < selectedSensorID.size() ; i++){
+
+                        values += sensorReadings[i] + ",";
+//                        values += sensorReadings[i];
+
+                    }
+
+
+                    String sample = (Long.parseLong(timeStamp.trim()) - timeStampReference) + "," + values;
+
+                    Log.v(LOG_TAG,"timeStampSensorReadingLoader sample:  "  + sampleTimeStampsIterator );
+                    Log.v(LOG_TAG,"sample:  "  + sample );
+
+                    sampleDataset.add(sample);
+
+                } else {
+
+                    Toast.makeText(MainActivity.this, "No existen registros guardados", Toast.LENGTH_SHORT).show();
+
+                }
+
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                Log.e(LOG_TAG, "FileWriter IOException: " + e.toString());
+            }
+
+            sampleTimeStampsIterator++;
+
+            if(sampleTimeStampsIterator == (sampleTimeStamps.size() - 1)){
+
+                sampleTimeStampsIterator = 0;
+                createSampleBasedCSV();
+                //Save datapoint loader destroyed, so that if user comes back from
+                //CSV file viewer, it does not create a new one
+                getLoaderManager().destroyLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER);
+
+            }else{
+
+                long minTime = sampleTimeStamps.get(sampleTimeStampsIterator);
+                long maxTime;
+
+                maxTime = sampleTimeStamps.get((sampleTimeStampsIterator + 1));
+
+                Bundle bundle = new Bundle();
+                bundle.putLong("minTime", minTime);
+                bundle.putLong("maxTime", maxTime);
+
+                // Kick off the  loader
+                getLoaderManager().restartLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER, bundle, timeStampSensorReadingLoader);
+
+
+            }
+
+
+
+
+        }
+
+        @Override
+        public void onLoaderReset(Loader<Cursor> loader) {
+
+            Log.v(LOG_TAG, "timeStampSensorReadingLoader: onLoaderReset");
+
+        }
+    };
+
+
+    private ArrayList<Integer> getSelectedSensorID() {
+
+        ArrayList<Integer> result = new ArrayList<>();
+
+        result.add(Constants.ACCELEROMETER_SENSOR_ID);
+        result.add(Constants.GYROSCOPE_SENSOR_ID);
+
+        return  result;
+
+    }
+
+
+
+
+    private String[] getSensorReadings(Cursor c, ArrayList<Integer> selectedSensorID) {
+
+        String[] answer = new String[selectedSensorID.size()];
+
+        for(int i = 0 ; i < selectedSensorID.size(); i++){
+
+            answer[i] = getReading(c, selectedSensorID.get(i));
+
+        }
+
+        return answer;
+    }
+
+
+    private String getReading(Cursor c, Integer sensorID) {
+
+        /*QUERY
+        *                 String[] projection = {
+                        ReadingEntry._ID,
+                        ReadingEntry.COLUMN_TIME,
+                        ReadingEntry.COLUMN_SAMPLE_RATE,
+                        ReadingEntry.COLUMN_SENSOR_ID,
+                        ReadingEntry.COLUMN_SENSOR_VALUE};
+
+        * */
+
+        int rowcount = c.getCount();
+        c.moveToFirst();
+
+        String reading;
+
+        Log.v(LOG_TAG,"getReading sensorID: "  + sensorID);
+
+        if(sensorID == Constants.ACCELEROMETER_SENSOR_ID || sensorID == Constants.GYROSCOPE_SENSOR_ID ){
+
+            reading= "NaN,NaN,NaN";
+
+        }else{
+
+            reading= "NaN";
+
+        }
+
+        for (int i = 0 ; i < rowcount; i++){
+
+            c.moveToPosition(i);
+
+            String currentID = c.getString(3);
+            String interestID = "" + sensorID;
+
+            if(currentID.equals(interestID)){
+
+                reading = c.getString(4);
+
+            }
+
+        }
+
+        return reading;
+    }
+
+
+    private void createSampleBasedCSV() {
+
+        File outputDirectory = getOutputDirectory();
+        String srLabel = "sample.csv";
+        File saveFile = getCsvOutputFile(outputDirectory, srLabel);
+
+        try {
+            FileWriter fw = new FileWriter(saveFile);
+            BufferedWriter bw = new BufferedWriter(fw);
+
+
+            for (int i = 0; i < sampleDataset.size(); i++) {
+
+                bw.write(sampleDataset.get(i));
+                bw.newLine();
+            }
+
+            bw.flush();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            Log.e(LOG_TAG, "FileWriter IOException: " + e.toString());
+        }
+
+        Log.w(LOG_TAG, "Datapoint Exported Successfully.");
+
+        ArrayList<String> sample  = formatSampleForSVM();
+        svm_node[] test = new svm_node[sample.size()];
+
+        for (int j = 0; j < sample.size(); j++) { //FEATURE
+
+            double featureValue = Double.parseDouble(sample.get(j).trim());
+
+            test[j] = new svm_node();
+            test[j].index = j;
+            test[j].value = featureValue;
+
+        }
+
+        double prediction = svm.svm_predict(model, test);
+        Log.w(LOG_TAG, "prediction: " + prediction);
+
+        int backgroundColor ;
+        String predictionText;
+
+
+        if(prediction == 0.0){
+            predictionText = "UP";
+            backgroundColor = getResources().getColor(R.color.up);
+        }else{
+            predictionText = "DOWN";
+            backgroundColor = getResources().getColor(R.color.down);
+        }
+
+        TextView predictionTextView = (TextView) findViewById(R.id.prediction);
+        predictionTextView.setBackgroundColor(backgroundColor);
+        predictionTextView.setText(predictionText);
+
+        showLoadingView(false);
+
+        //If SaveDatapoint button is clicked while MSBand still connected, it saves the
+        //newest values
+        sampleDataset.clear();
+
+        getLoaderManager().destroyLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER);
+
+    }
+
+
+
+    private File getCsvOutputFile(File dir, String filename) {
+
+        return new File(dir, filename);
+    }
+
+    private ArrayList<String> formatSampleForSVM() {
+
+        if(sampleDataset.size() > SVM_SAMPLE_SIZE){
+
+            int randomNumbers = sampleDataset.size() - SVM_SAMPLE_SIZE;
+            ArrayList<Integer> exceededIndex = getIndexToDelete(randomNumbers);
+
+            for(int i = 0 ; i < exceededIndex.size() ; i++){
+
+                sampleDataset.remove(i);
+
+            }
+
+
+        }else{
+
+            if(sampleDataset.size() < SVM_SAMPLE_SIZE){
+
+                int rowsToAdd = SVM_SAMPLE_SIZE - sampleDataset.size() ;
+
+                for(int i = 0 ; i < rowsToAdd ; i++){
+
+                    sampleDataset.add("0,0,0,0,0,0,0");
+
+                }
+
+            }
+
+        }
+
+
+
+        Log.v(LOG_TAG,"sampleDataset.size() : " + sampleDataset.size() );
+
+
+        ArrayList<ArrayList<String>> tokenizedSampleDataset = new ArrayList<>();
+
+
+        for(int i = 0 ; i <  sampleDataset.size() ; i++) {//SAMPLES
+
+            ArrayList<String> sampleToken = new ArrayList<>();
+
+            String sample = sampleDataset.get(i);
+
+            StringTokenizer st = new StringTokenizer(sample,",");
+
+            while (st.hasMoreTokens()) {
+                sampleToken.add(st.nextToken());
+            }
+
+            tokenizedSampleDataset.add(sampleToken);
+
+        }
+
+        ArrayList<String> answer = new ArrayList<>();
+
+        for(int i = 0 ; i <  tokenizedSampleDataset.get(0).size() ; i++) {//FEATURES
+
+            for(int j = 0; j < tokenizedSampleDataset.size() ; j++){
+
+                answer.add(tokenizedSampleDataset.get(j).get(i));
+
+            }
+        }
+
+        return answer;
+    }
+
+
+    private ArrayList<Integer> getIndexToDelete(int randomNumbers) {
+
+        Log.v(LOG_TAG,"getIndexToDelete");
+        //101	115	56	9	62	23	35	113	19	88	39	53	12	7	94	8	108	42	46	37	4	74	36
+
+        ArrayList<Integer> indexToDelete  = new ArrayList<>();
+
+        ArrayList<Integer> list = new ArrayList<Integer>();
+
+        for(int i = 0; i < sampleDataset.size(); i++) {
+            list.add(i);
+        }
+
+        Random rand = new Random();
+
+        while(indexToDelete.size() < randomNumbers) {
+            int index = rand.nextInt(list.size());
+            indexToDelete.add(list.get(index));
+            list.remove(index);
+        }
+
+        return  indexToDelete;
+
+    }
 
 }
