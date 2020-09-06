@@ -21,6 +21,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name=".data.SensorReadingProvider"
+            android:authorities="com.mars_skyrunner.movementrecognizer"
+            android:exported="false"/>
+
+        <service android:name=".DbInsertionService" />
+
+
     </application>
 
 </manifest>
