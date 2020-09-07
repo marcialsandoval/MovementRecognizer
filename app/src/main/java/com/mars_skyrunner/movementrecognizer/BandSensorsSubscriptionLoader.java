@@ -20,13 +20,6 @@ import com.microsoft.band.sensors.BandGyroscopeEventListener;
 import com.microsoft.band.sensors.GsrSampleRate;
 import com.microsoft.band.sensors.SampleRate;
 import java.util.concurrent.TimeoutException;
-import static com.microsoft.band.ConnectionState.BINDING;
-import static com.microsoft.band.ConnectionState.BOUND;
-import static com.microsoft.band.ConnectionState.CONNECTED;
-import static com.microsoft.band.ConnectionState.DISPOSED;
-import static com.microsoft.band.ConnectionState.INVALID_SDK_VERSION;
-import static com.microsoft.band.ConnectionState.UNBINDING;
-import static com.microsoft.band.ConnectionState.UNBOUND;
 
 import static com.mars_skyrunner.movementrecognizer.MainActivity.client;
 import static com.mars_skyrunner.movementrecognizer.MainActivity.sampleButton;
@@ -56,15 +49,11 @@ public class BandSensorsSubscriptionLoader extends AsyncTask<Void,Void,Connectio
 
         try {
 
-            String bandStts = "";
-
             ConnectionState clientState = getConnectedBandClient();
 
             if (ConnectionState.CONNECTED == clientState) {
 
                 answer = ConnectionState.CONNECTED;
-                bandStts = "Band is connected.";
-
 
                 try {
 
@@ -85,6 +74,8 @@ public class BandSensorsSubscriptionLoader extends AsyncTask<Void,Void,Connectio
                     appendToUI("Sensor reading error", Constants.GYROSCOPE);
                 }
 
+                appendToUI(answer.toString(), Constants.BAND_STATUS);
+
 
             } else {
 
@@ -92,7 +83,7 @@ public class BandSensorsSubscriptionLoader extends AsyncTask<Void,Void,Connectio
 
             }
 
-            Log.v(LOG_TAG,"answer: " + answer.toString());
+            Log.v(LOG_TAG,"answer.toString(): " + answer.toString());
 
         } catch (BandException e) {
 
@@ -123,6 +114,8 @@ public class BandSensorsSubscriptionLoader extends AsyncTask<Void,Void,Connectio
 
 
         }
+
+
 
         return answer;
 
@@ -400,39 +393,41 @@ public class BandSensorsSubscriptionLoader extends AsyncTask<Void,Void,Connectio
 
                 case CONNECTED:
 
-                    userMsg = "Band is bound to MS Health's band communication service and connected to its corresponding MS Band";
+                  //  userMsg = "Band is bound to MS Health's band communication service and connected to its corresponding MS Band";
 
                     break;
 
                 case BOUND:
-                    userMsg = "Band is bound to MS Health's band comm. service";
+                    //userMsg = "Band is bound to MS Health's band comm. service";
                     break;
 
                 case BINDING:
-                    userMsg = "Band is binding to MS Health's band comm. service";
+                   // userMsg = "Band is binding to MS Health's band comm. service";
                     break;
 
                 case UNBOUND:
-                    userMsg = "Band is not bound to MS Health's band comm. service";
+                   // userMsg = "Band is not bound to MS Health's band comm. service";
                     break;
 
                 case DISPOSED:
-                    userMsg = "Band has been disposed of by MS Health's band comm. service";
+                  //  userMsg = "Band has been disposed of by MS Health's band comm. service";
                     break;
 
                 case UNBINDING:
-                    userMsg = "Band is unbinding from MS Health's band comm. service";
+                  //  userMsg = "Band is unbinding from MS Health's band comm. service";
                     break;
 
                 case INVALID_SDK_VERSION:
-                    userMsg = "MS Health band comm. service version mismatch";
+                  //  userMsg = "MS Health band comm. service version mismatch";
                     break;
 
                 default:
-                    userMsg = "Band Suscription failed.";
+               //     userMsg = "Band Suscription failed.";
                     break;
 
             }
+
+            userMsg = cs.toString();
 
             Log.v(LOG_TAG, userMsg);
 
@@ -446,5 +441,15 @@ public class BandSensorsSubscriptionLoader extends AsyncTask<Void,Void,Connectio
             Log.v(LOG_TAG, "Band isn't paired with your phone.");
 
         }
+    }
+
+    public static void unregisterListeners(){
+        try {
+            client.getSensorManager().unregisterAccelerometerEventListeners();
+            client.getSensorManager().unregisterGyroscopeEventListeners();
+        } catch (BandIOException e) {
+            e.printStackTrace();
+        }
+
     }
 }

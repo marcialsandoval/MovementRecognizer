@@ -1,5 +1,6 @@
 package com.mars_skyrunner.movementrecognizer;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import libsvm.svm;
@@ -7,6 +8,7 @@ import libsvm.svm_model;
 import libsvm.svm_node;
 import libsvm.svm_parameter;
 import libsvm.svm_problem;
+
 import android.app.LoaderManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -18,7 +20,11 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -26,6 +32,7 @@ import android.widget.ToggleButton;
 import com.mars_skyrunner.movementrecognizer.data.SensorReadingContract;
 import com.microsoft.band.BandClient;
 import com.microsoft.band.ConnectionState;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -45,10 +52,10 @@ public class MainActivity extends AppCompatActivity {
 
     private String LOG_TAG = MainActivity.class.getSimpleName();
     public static BandClient client = null;
-    public static ToggleButton sampleButton ;
+    public static ToggleButton sampleButton;
     public static long TIMER_DURATION = 4;
     public int SVM_SAMPLE_SIZE = 100;
-    TextView clock ;
+    TextView clockTV, loaderTV;
     FutureTask task = null;
     public static long timeBasedCSVDate = 0;
     ArrayList<Long> sampleTimeStamps;
@@ -57,50 +64,89 @@ public class MainActivity extends AppCompatActivity {
     public static String labelPrefix = "up_";
     private ArrayList<String> sampleDataset = new ArrayList<>();
     svm_model model;
+    ImageView upIV, dwnIV, clockIV;
+    boolean bandConnectionState = false;
+    TextView predictionTextView;
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        return true;
+
+
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+
+        switch (item.getItemId()) {
+
+
+            case R.id.refresh:
+
+                BandSensorsSubscriptionLoader sensortask = new BandSensorsSubscriptionLoader(this);
+                BandSensorsSubscriptionLoader.unregisterListeners();
+                sensortask.execute();
+
+                return true;
+        }
+
+        return false;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        File dir = getOutputDirectory();
-        model = getMovementModel(dir);
-
-
-        Log.v(LOG_TAG,"MODEL TRAINED");
-
         BandSensorsSubscriptionLoader sensortask = new BandSensorsSubscriptionLoader(this);
         sensortask.execute();
 
-        //Register broadcast receiver to print values on screen from BandSensorsSubscriptionLoader
-        registerReceiver(displayVaueReceiver, new IntentFilter(Constants.DISPLAY_VALUE));
+        File dir = getOutputDirectory();
+        model = getMovementModel(dir);
 
-        //Register broadcast receiver to display timer
-        registerReceiver(timeReceiver, new IntentFilter(getClass().getPackage() + ".BROADCAST"));
+        loaderTV = findViewById(R.id.loader_tv);
+        predictionTextView = (TextView) findViewById(R.id.prediction);
+        upIV = findViewById(R.id.arm_up_iv);
+        dwnIV = findViewById(R.id.arm_down_iv);
+        clockIV = findViewById(R.id.clock_iv);
+        clockTV = findViewById(R.id.minutes);
 
-
-        clock = findViewById(R.id.minutes);
+        Log.v(LOG_TAG, "MODEL TRAINED");
 
         sampleButton = (ToggleButton) findViewById(R.id.sample_btn);
         sampleButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
-                TextView predictionTextView = (TextView) findViewById(R.id.prediction);
-                predictionTextView.setBackgroundColor(getResources().getColor(R.color.white));
-                predictionTextView.setText("sampling...");
-                sampleButton.setEnabled(false);
+                if (bandConnectionState) {
+                    upIV.setVisibility(View.GONE);
+                    dwnIV.setVisibility(View.GONE);
 
-                Log.v(LOG_TAG,"sampleButton setOnClickListener");
-                clock.setText("" + TIMER_DURATION);
-                task = new FutureTask(new CounterCallable(MainActivity.this,0, TIMER_DURATION,1));
+                    clockIV.setVisibility(View.GONE);
+                    clockTV.setVisibility(View.VISIBLE);
 
-                ExecutorService pool = Executors.newSingleThreadExecutor();
-                pool.submit(task);
-                pool.shutdown();
+                    sampleButton.setEnabled(false);
 
-                timeBasedCSVDate = System.currentTimeMillis();
+                    showLoadingView(true);
+                    loaderTV.setText("sampling...");
+                    predictionTextView.setText("");
+
+                    Log.v(LOG_TAG, "sampleButton setOnClickListener");
+                    clockTV.setText("" + TIMER_DURATION);
+                    task = new FutureTask(new CounterCallable(MainActivity.this, 0, TIMER_DURATION, 1));
+
+                    ExecutorService pool = Executors.newSingleThreadExecutor();
+                    pool.submit(task);
+                    pool.shutdown();
+
+                    timeBasedCSVDate = System.currentTimeMillis();
+
+                } else {
+                    sampleButton.setChecked(false);
+                    Toast.makeText(MainActivity.this, "Lost connection with MS Band.", Toast.LENGTH_SHORT).show();
+                }
 
             }
         });
@@ -114,17 +160,20 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
 
             long seconds = intent.getExtras().getLong(getClass().getPackage() + ".TIME");
-            clock.setText("" + (TIMER_DURATION - seconds));
+            clockTV.setText("" + (TIMER_DURATION - seconds));
 
             Log.v(LOG_TAG, " timeReceiver seconds: " + seconds);
 
-            if(seconds == TIMER_DURATION){
+            if (seconds == TIMER_DURATION) {
 
-                Log.v(LOG_TAG, "timeReceiver  seconds == TIMER_DURATION " );
-
-                showLoadingView(true);
+                Log.v(LOG_TAG, "timeReceiver  seconds == TIMER_DURATION ");
+                loaderTV.setText("processing...");
 
                 resetTimer();
+
+                clockIV.setVisibility(View.VISIBLE);
+                clockTV.setVisibility(View.GONE);
+
                 sampleButton.setEnabled(true);
                 sampleButton.setChecked(false);
 
@@ -143,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void resetTimer() {
 
-        clock.setText("");
+        clockTV.setText("");
 
     }
 
@@ -157,7 +206,13 @@ public class MainActivity extends AppCompatActivity {
 
             Log.v(LOG_TAG, "displayVaueReceiver: value: " + value);
 
-            appendToUI(value , Constants.BAND_STATUS);
+            if (value.equals(ConnectionState.CONNECTED.toString())) {
+                bandConnectionState = true;
+            } else {
+                bandConnectionState = false;
+            }
+
+            appendToUI(value, Constants.BAND_STATUS);
 
         }
 
@@ -166,17 +221,17 @@ public class MainActivity extends AppCompatActivity {
 
 
     /**
-     *Helper method to show loader on screen.
+     * Helper method to show loader on screen.
      *
-     * @param loadingState  set to true to show loader on screen, false otherwise.
+     * @param loadingState set to true to show loader on screen, false otherwise.
      */
     private void showLoadingView(boolean loadingState) {
 
         if (loadingState) {
-            findViewById(R.id.main_layout).setVisibility(View.GONE);
+            //  findViewById(R.id.main_layout).setVisibility(View.GONE);
             findViewById(R.id.loading_layout).setVisibility(View.VISIBLE);
         } else {
-            findViewById(R.id.main_layout).setVisibility(View.VISIBLE);
+            //findViewById(R.id.main_layout).setVisibility(View.VISIBLE);
             findViewById(R.id.loading_layout).setVisibility(View.GONE);
         }
 
@@ -184,7 +239,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     /**
-     *Creates directory to store output files.
+     * Creates directory to store output files.
      */
     private File getOutputDirectory() {
 
@@ -211,25 +266,25 @@ public class MainActivity extends AppCompatActivity {
 
     private svm_model getMovementModel(File dir) {
 
-        File trainDataFile = new File(dir,"trainDataset.csv");
+        File trainDataFile = new File(dir, "trainDataset.csv");
         ArrayList<ArrayList<String>> trainDataset = getTrainDataset(trainDataFile);
 
-        File trainLabelsFile = new File(dir,"trainLabels.csv");
+        File trainLabelsFile = new File(dir, "trainLabels.csv");
         ArrayList<String> labelsDataset = getTrainLabelsDataset(trainLabelsFile);
 
         int variables = trainDataset.get(0).size();
         svm_problem prob = new svm_problem();
         prob.l = trainDataset.size();//LENGTH
-        prob.y = new double[  prob.l ];//LABELS
+        prob.y = new double[prob.l];//LABELS
         prob.x = new svm_node[prob.l][variables];//SAMPLES
 
-        for(int i=0;i<prob.l;i++)//SAMPLE
+        for (int i = 0; i < prob.l; i++)//SAMPLE
         {
 
             ArrayList<String> sample = trainDataset.get(i);
             prob.y[i] = Double.parseDouble(labelsDataset.get(i).trim());
 
-            for(int j = 0 ; j < variables ; j++){ //FEATURE
+            for (int j = 0; j < variables; j++) { //FEATURE
 
                 double featureValue = Double.parseDouble(sample.get(j).trim());
 
@@ -267,7 +322,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     private ArrayList<ArrayList<String>> getTrainDataset(File trainDataFile) {
 
         ArrayList<ArrayList<String>> trainDataset = new ArrayList<>();
@@ -279,7 +333,7 @@ public class MainActivity extends AppCompatActivity {
 
             while ((line = br.readLine()) != null) {
 
-                StringTokenizer st = new StringTokenizer(line,",");
+                StringTokenizer st = new StringTokenizer(line, ",");
 
                 ArrayList<String> sample = new ArrayList<>();
 
@@ -292,9 +346,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             br.close();
-        }
-        catch (IOException e) {
-            Log.e(LOG_TAG,"BufferedReader : IOException : " + e.toString());
+        } catch (IOException e) {
+            Log.e(LOG_TAG, "BufferedReader : IOException : " + e.toString());
         }
 
         return trainDataset;
@@ -313,7 +366,7 @@ public class MainActivity extends AppCompatActivity {
 
             while ((line = br.readLine()) != null) {
 
-                StringTokenizer st = new StringTokenizer(line,",");
+                StringTokenizer st = new StringTokenizer(line, ",");
 
                 while (st.hasMoreTokens()) {
                     trainLabelsDataset.add(st.nextToken());
@@ -322,18 +375,17 @@ public class MainActivity extends AppCompatActivity {
             }
 
             br.close();
-        }
-        catch (IOException e) {
-            Log.e(LOG_TAG,"BufferedReader : IOException : " + e.toString());
+        } catch (IOException e) {
+            Log.e(LOG_TAG, "BufferedReader : IOException : " + e.toString());
         }
 
         return trainLabelsDataset;
     }
 
 
-    private void appendToUI(String value , String sensor) {
+    private void appendToUI(String value, String sensor) {
 
-        TextView textView = (TextView)findViewById(R.id.stts);
+        TextView textView = (TextView) findViewById(R.id.stts);
         textView.setText(value);
 
     }
@@ -345,7 +397,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
 
-            Log.v(LOG_TAG,"SAMPLE BASED CSV");
+            Log.v(LOG_TAG, "SAMPLE BASED CSV");
 
             // Define a projection that specifies the columns from the table we care about.
             String[] projection3 = {
@@ -396,7 +448,7 @@ public class MainActivity extends AppCompatActivity {
                     String maxSampleRate = c.getString(0).trim();
                     String maxSampleRateSensorID = c.getString(1).trim();
 
-                    Log.v(LOG_TAG,"Max Sample Rate Sensor ID : " + maxSampleRateSensorID);
+                    Log.v(LOG_TAG, "Max Sample Rate Sensor ID : " + maxSampleRateSensorID);
 
                     Bundle bundle = new Bundle();
                     bundle.putString("maxSampleRate", maxSampleRate);
@@ -410,11 +462,11 @@ public class MainActivity extends AppCompatActivity {
                     //CSV file viewer, it does not create a new one
                     getLoaderManager().destroyLoader(Constants.CREATE_CSV_LOADER);
 
-                } else{
+                } else {
                     //Save datapoint loader destroyed, so that if user comes back from
                     //CSV file viewer, it does not create a new one
                     getLoaderManager().destroyLoader(Constants.CREATE_CSV_LOADER);
-                    Toast.makeText(MainActivity.this,"No records to export CSV", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "No records to export CSV", Toast.LENGTH_SHORT).show();
                 }
 
             } catch (Exception e) {
@@ -510,8 +562,8 @@ public class MainActivity extends AppCompatActivity {
 
             timeStampReference = sampleTimeStamps.get(0);
 
-            for (int i= 0; i< sampleTimeStamps.size();i++){
-                Log.v(LOG_TAG,"CSV TIME STAMP: " + (sampleTimeStamps.get(i) - timeStampReference));
+            for (int i = 0; i < sampleTimeStamps.size(); i++) {
+                Log.v(LOG_TAG, "CSV TIME STAMP: " + (sampleTimeStamps.get(i) - timeStampReference));
             }
 
             long minTime = sampleTimeStamps.get(0);
@@ -555,8 +607,8 @@ public class MainActivity extends AppCompatActivity {
             long minTime = bundle.getLong("minTime");
             long maxTime = bundle.getLong("maxTime");
 
-            Log.v(LOG_TAG,"timeStampSensorReadingLoader: minTime: " + minTime);
-            Log.v(LOG_TAG,"timeStampSensorReadingLoader: maxTime: " + maxTime);
+            Log.v(LOG_TAG, "timeStampSensorReadingLoader: minTime: " + minTime);
+            Log.v(LOG_TAG, "timeStampSensorReadingLoader: maxTime: " + maxTime);
 
             if (minTime != maxTime) {
 
@@ -585,7 +637,7 @@ public class MainActivity extends AppCompatActivity {
 
             }
 
-            return  null;
+            return null;
 
 
         }
@@ -616,10 +668,10 @@ public class MainActivity extends AppCompatActivity {
 
                 if (rowcount > 0) {
 
-                    sensorReadings = getSensorReadings(c , selectedSensorID);
+                    sensorReadings = getSensorReadings(c, selectedSensorID);
                     String values = "";
 
-                    for (int i = 0 ; i < selectedSensorID.size() ; i++){
+                    for (int i = 0; i < selectedSensorID.size(); i++) {
 
                         values += sensorReadings[i] + ",";
 //                        values += sensorReadings[i];
@@ -629,8 +681,8 @@ public class MainActivity extends AppCompatActivity {
 
                     String sample = (Long.parseLong(timeStamp.trim()) - timeStampReference) + "," + values;
 
-                    Log.v(LOG_TAG,"timeStampSensorReadingLoader sample:  "  + sampleTimeStampsIterator );
-                    Log.v(LOG_TAG,"sample:  "  + sample );
+                    Log.v(LOG_TAG, "timeStampSensorReadingLoader sample:  " + sampleTimeStampsIterator);
+                    Log.v(LOG_TAG, "sample:  " + sample);
 
                     sampleDataset.add(sample);
 
@@ -648,7 +700,7 @@ public class MainActivity extends AppCompatActivity {
 
             sampleTimeStampsIterator++;
 
-            if(sampleTimeStampsIterator == (sampleTimeStamps.size() - 1)){
+            if (sampleTimeStampsIterator == (sampleTimeStamps.size() - 1)) {
 
                 sampleTimeStampsIterator = 0;
                 createSampleBasedCSV();
@@ -656,7 +708,7 @@ public class MainActivity extends AppCompatActivity {
                 //CSV file viewer, it does not create a new one
                 getLoaderManager().destroyLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER);
 
-            }else{
+            } else {
 
                 long minTime = sampleTimeStamps.get(sampleTimeStampsIterator);
                 long maxTime;
@@ -670,10 +722,7 @@ public class MainActivity extends AppCompatActivity {
                 // Kick off the  loader
                 getLoaderManager().restartLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER, bundle, timeStampSensorReadingLoader);
 
-
             }
-
-
 
 
         }
@@ -694,18 +743,16 @@ public class MainActivity extends AppCompatActivity {
         result.add(Constants.ACCELEROMETER_SENSOR_ID);
         result.add(Constants.GYROSCOPE_SENSOR_ID);
 
-        return  result;
+        return result;
 
     }
-
-
 
 
     private String[] getSensorReadings(Cursor c, ArrayList<Integer> selectedSensorID) {
 
         String[] answer = new String[selectedSensorID.size()];
 
-        for(int i = 0 ; i < selectedSensorID.size(); i++){
+        for (int i = 0; i < selectedSensorID.size(); i++) {
 
             answer[i] = getReading(c, selectedSensorID.get(i));
 
@@ -732,26 +779,26 @@ public class MainActivity extends AppCompatActivity {
 
         String reading;
 
-        Log.v(LOG_TAG,"getReading sensorID: "  + sensorID);
+        Log.v(LOG_TAG, "getReading sensorID: " + sensorID);
 
-        if(sensorID == Constants.ACCELEROMETER_SENSOR_ID || sensorID == Constants.GYROSCOPE_SENSOR_ID ){
+        if (sensorID == Constants.ACCELEROMETER_SENSOR_ID || sensorID == Constants.GYROSCOPE_SENSOR_ID) {
 
-            reading= "NaN,NaN,NaN";
+            reading = "NaN,NaN,NaN";
 
-        }else{
+        } else {
 
-            reading= "NaN";
+            reading = "NaN";
 
         }
 
-        for (int i = 0 ; i < rowcount; i++){
+        for (int i = 0; i < rowcount; i++) {
 
             c.moveToPosition(i);
 
             String currentID = c.getString(3);
             String interestID = "" + sensorID;
 
-            if(currentID.equals(interestID)){
+            if (currentID.equals(interestID)) {
 
                 reading = c.getString(4);
 
@@ -789,7 +836,7 @@ public class MainActivity extends AppCompatActivity {
 
         Log.w(LOG_TAG, "Datapoint Exported Successfully.");
 
-        ArrayList<String> sample  = formatSampleForSVM();
+        ArrayList<String> sample = formatSampleForSVM();
         svm_node[] test = new svm_node[sample.size()];
 
         for (int j = 0; j < sample.size(); j++) { //FEATURE
@@ -805,20 +852,24 @@ public class MainActivity extends AppCompatActivity {
         double prediction = svm.svm_predict(model, test);
         Log.w(LOG_TAG, "prediction: " + prediction);
 
-        int backgroundColor ;
+        int backgroundColor;
         String predictionText;
 
 
-        if(prediction == 0.0){
+        if (prediction == 0.0) {
             predictionText = "UP";
-            backgroundColor = getResources().getColor(R.color.up);
-        }else{
+            dwnIV.setVisibility(View.GONE);
+            upIV.setVisibility(View.VISIBLE);
+            //backgroundColor = getResources().getColor(R.color.up);
+        } else {
             predictionText = "DOWN";
-            backgroundColor = getResources().getColor(R.color.down);
+            dwnIV.setVisibility(View.VISIBLE);
+            upIV.setVisibility(View.GONE);
+            //backgroundColor = getResources().getColor(R.color.down);
         }
 
-        TextView predictionTextView = (TextView) findViewById(R.id.prediction);
-        predictionTextView.setBackgroundColor(backgroundColor);
+
+        //predictionTextView.setBackgroundColor(backgroundColor);
         predictionTextView.setText(predictionText);
 
         showLoadingView(false);
@@ -832,7 +883,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     private File getCsvOutputFile(File dir, String filename) {
 
         return new File(dir, filename);
@@ -840,25 +890,25 @@ public class MainActivity extends AppCompatActivity {
 
     private ArrayList<String> formatSampleForSVM() {
 
-        if(sampleDataset.size() > SVM_SAMPLE_SIZE){
+        if (sampleDataset.size() > SVM_SAMPLE_SIZE) {
 
             int randomNumbers = sampleDataset.size() - SVM_SAMPLE_SIZE;
             ArrayList<Integer> exceededIndex = getIndexToDelete(randomNumbers);
 
-            for(int i = 0 ; i < exceededIndex.size() ; i++){
+            for (int i = 0; i < exceededIndex.size(); i++) {
 
                 sampleDataset.remove(i);
 
             }
 
 
-        }else{
+        } else {
 
-            if(sampleDataset.size() < SVM_SAMPLE_SIZE){
+            if (sampleDataset.size() < SVM_SAMPLE_SIZE) {
 
-                int rowsToAdd = SVM_SAMPLE_SIZE - sampleDataset.size() ;
+                int rowsToAdd = SVM_SAMPLE_SIZE - sampleDataset.size();
 
-                for(int i = 0 ; i < rowsToAdd ; i++){
+                for (int i = 0; i < rowsToAdd; i++) {
 
                     sampleDataset.add("0,0,0,0,0,0,0");
 
@@ -869,20 +919,19 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-
-        Log.v(LOG_TAG,"sampleDataset.size() : " + sampleDataset.size() );
+        Log.v(LOG_TAG, "sampleDataset.size() : " + sampleDataset.size());
 
 
         ArrayList<ArrayList<String>> tokenizedSampleDataset = new ArrayList<>();
 
 
-        for(int i = 0 ; i <  sampleDataset.size() ; i++) {//SAMPLES
+        for (int i = 0; i < sampleDataset.size(); i++) {//SAMPLES
 
             ArrayList<String> sampleToken = new ArrayList<>();
 
             String sample = sampleDataset.get(i);
 
-            StringTokenizer st = new StringTokenizer(sample,",");
+            StringTokenizer st = new StringTokenizer(sample, ",");
 
             while (st.hasMoreTokens()) {
                 sampleToken.add(st.nextToken());
@@ -894,9 +943,9 @@ public class MainActivity extends AppCompatActivity {
 
         ArrayList<String> answer = new ArrayList<>();
 
-        for(int i = 0 ; i <  tokenizedSampleDataset.get(0).size() ; i++) {//FEATURES
+        for (int i = 0; i < tokenizedSampleDataset.get(0).size(); i++) {//FEATURES
 
-            for(int j = 0; j < tokenizedSampleDataset.size() ; j++){
+            for (int j = 0; j < tokenizedSampleDataset.size(); j++) {
 
                 answer.add(tokenizedSampleDataset.get(j).get(i));
 
@@ -909,27 +958,51 @@ public class MainActivity extends AppCompatActivity {
 
     private ArrayList<Integer> getIndexToDelete(int randomNumbers) {
 
-        Log.v(LOG_TAG,"getIndexToDelete");
+        Log.v(LOG_TAG, "getIndexToDelete");
         //101	115	56	9	62	23	35	113	19	88	39	53	12	7	94	8	108	42	46	37	4	74	36
 
-        ArrayList<Integer> indexToDelete  = new ArrayList<>();
+        ArrayList<Integer> indexToDelete = new ArrayList<>();
 
         ArrayList<Integer> list = new ArrayList<Integer>();
 
-        for(int i = 0; i < sampleDataset.size(); i++) {
+        for (int i = 0; i < sampleDataset.size(); i++) {
             list.add(i);
         }
 
         Random rand = new Random();
 
-        while(indexToDelete.size() < randomNumbers) {
+        while (indexToDelete.size() < randomNumbers) {
             int index = rand.nextInt(list.size());
             indexToDelete.add(list.get(index));
             list.remove(index);
         }
 
-        return  indexToDelete;
+        return indexToDelete;
 
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        unregisterReceiver(displayVaueReceiver);
+        unregisterReceiver(timeReceiver);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        BandSensorsSubscriptionLoader.unregisterListeners();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        //Register broadcast receiver to print values on screen from BandSensorsSubscriptionLoader
+        registerReceiver(displayVaueReceiver, new IntentFilter(Constants.DISPLAY_VALUE));
+
+        //Register broadcast receiver to display timer
+        registerReceiver(timeReceiver, new IntentFilter(getClass().getPackage() + ".BROADCAST"));
+    }
 }
