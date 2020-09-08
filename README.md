@@ -19,13 +19,16 @@ Once the apps Main Activity is launched, the user needs to wait until the bands 
 ![MainScreenSmall](https://user-images.githubusercontent.com/61889565/92423976-da870b00-f137-11ea-8aff-13c9ec574c44.png)
 
 Otherwise, an error message is shown:
+![ErrorMessageSmall](https://user-images.githubusercontent.com/61889565/92425446-2340c300-f13c-11ea-96d7-f55b1941f38c.png)
 
-
-
-
+In order to make the movement recognition, the user needs to press the 'Sample' button, once he's done that, a 4 second timer will start, which will be the period to perform the preferred test movement.
 ![SamplingScreenSmall](https://user-images.githubusercontent.com/61889565/92423974-da870b00-f137-11ea-8bf5-4a9cc3a22101.png)
+
+All the sensors readings are stored locally on the Android device within a SQLite database instance, once the 4 seconds period time end, all the sensor records are concatenated to become a sample on which the pre trained SVM model is going to be tested.    
 ![PrecessingScreenSmall](https://user-images.githubusercontent.com/61889565/92423975-da870b00-f137-11ea-894c-bd011ef49eff.png)
 
+## Result
+As a result, a class representing image and label is shown on screen.
 ![UpRecognizerSmall](https://user-images.githubusercontent.com/61889565/92423977-db1fa180-f137-11ea-8653-88ad23bc626a.png)
 ![DownRecognizerSmall](https://user-images.githubusercontent.com/61889565/92423980-db1fa180-f137-11ea-9240-6128fc20099e.png)
 
