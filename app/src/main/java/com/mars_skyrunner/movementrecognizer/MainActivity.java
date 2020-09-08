@@ -183,9 +183,6 @@ public class MainActivity extends AppCompatActivity {
                 clockIV.setVisibility(View.VISIBLE);
                 clockTV.setVisibility(View.GONE);
 
-                sampleButton.setEnabled(true);
-                sampleButton.setChecked(false);
-
                 Bundle extraBundle = new Bundle();
                 extraBundle.putLong(Constants.SENSOR_TIME, timeBasedCSVDate);
 
@@ -428,7 +425,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * This method displays a message on the band status text view.
+     * This method displays a message on the band status text view on activity_main layout.
      *
      * @param value Message to be displayed.
      */
@@ -446,8 +443,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
 
-            Log.v(LOG_TAG, "SAMPLE BASED CSV");
-
             // Define a projection that specifies the columns from the table we care about.
             String[] projection3 = {
                     "MAX(" + SensorReadingContract.ReadingEntry.COLUMN_SAMPLE_RATE + ")",
@@ -455,15 +450,9 @@ public class MainActivity extends AppCompatActivity {
             };
 
             String selection3 = SensorReadingContract.ReadingEntry.COLUMN_TIME + ">?";
-            //String selection2 = null;
-
             String selectionArg3 = "" + timeBasedCSVDate;
-
             String[] selectionArgs3 = {selectionArg3};
-            //String[] selectionArgs2 = null;
-
             String sortOrder3 = SensorReadingContract.ReadingEntry.COLUMN_TIME;
-            //String sortOrder2 = ReadingEntry._ID;
 
             return new CursorLoader(MainActivity.this,   // Parent activity context
                     SensorReadingContract.ReadingEntry.CONTENT_URI,   // Provider content URI to query
@@ -472,15 +461,10 @@ public class MainActivity extends AppCompatActivity {
                     selectionArgs3,                   //  selection arguments
                     sortOrder3);                  //  sort order
 
-
         }
 
         @Override
         public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
-
-            Log.v(LOG_TAG, "saveDataCursorLoader: onLoadFinished");
-            Log.v(LOG_TAG, "SAMPLE BASED CSV");
-
 
             try {
 
@@ -503,9 +487,8 @@ public class MainActivity extends AppCompatActivity {
                     bundle.putString("maxSampleRate", maxSampleRate);
                     bundle.putString("maxSampleRateSensorID", maxSampleRateSensorID);
 
-                    // Kick off the  loader
+                    // Kicks off the loader
                     getLoaderManager().restartLoader(Constants.SAMPLE_BASED_LOADER, bundle, SampleBasedCSVFileLoader);
-
 
                     //Save datapoint loader destroyed, so that if user comes back from
                     //CSV file viewer, it does not create a new one
@@ -527,9 +510,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onLoaderReset(Loader<Cursor> loader) {
-
-            Log.v(LOG_TAG, "saveDataCursorLoader: onLoaderReset");
-
+            //Nothing happens
         }
 
     };
@@ -539,13 +520,10 @@ public class MainActivity extends AppCompatActivity {
             = new LoaderManager.LoaderCallbacks<Cursor>() {
 
         //Once the max sample rate has been selected, proceed to retrieve samples timestamps
-
         Context mContext = MainActivity.this;
 
         @Override
         public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
-
-            Log.v(LOG_TAG, "SampleBasedCSVFileLoader: onCreateLoader");
 
             // Define a projection that specifies the columns from the table we care about.
             String[] projection = {
@@ -560,7 +538,9 @@ public class MainActivity extends AppCompatActivity {
             // This loader will execute the ContentProvider's query method on a background thread
             //<> : Not equal to
 
-            String selection = SensorReadingContract.ReadingEntry.COLUMN_SAMPLE_RATE + "=? AND " + SensorReadingContract.ReadingEntry.COLUMN_TIME + ">? AND " + SensorReadingContract.ReadingEntry.COLUMN_SENSOR_ID + "=?";
+            String selection = SensorReadingContract.ReadingEntry.COLUMN_SAMPLE_RATE + "=? AND "
+                    + SensorReadingContract.ReadingEntry.COLUMN_TIME + ">? AND "
+                    + SensorReadingContract.ReadingEntry.COLUMN_SENSOR_ID + "=?";
 
             String saveTimeSelecionArg = "" + timeBasedCSVDate;
 
@@ -582,7 +562,6 @@ public class MainActivity extends AppCompatActivity {
             //sampleTimeStamps stores sample time stamps that are going to be searched for all sensors,
             // in order to concatenate
             // each sensor reading into a single vector for each timestamp
-
             sampleTimeStamps = new ArrayList<>();
 
             try {
@@ -608,6 +587,8 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
                 Log.e(LOG_TAG, "FileWriter IOException: " + e.toString());
             }
+
+
 
             timeStampReference = sampleTimeStamps.get(0);
 
@@ -651,8 +632,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public Loader<Cursor> onCreateLoader(int id, Bundle bundle) {
 
-            Log.v(LOG_TAG, "timeStampSensorReadingLoader: onCreateLoader");
-
             long minTime = bundle.getLong("minTime");
             long maxTime = bundle.getLong("maxTime");
 
@@ -672,8 +651,8 @@ public class MainActivity extends AppCompatActivity {
                 String sortOrder = SensorReadingContract.ReadingEntry._ID;
 
                 // This loader will execute the ContentProvider's query method on a background thread
-
-                String selection = SensorReadingContract.ReadingEntry.COLUMN_TIME + ">=?  AND " + SensorReadingContract.ReadingEntry.COLUMN_TIME + "<?";
+                String selection = SensorReadingContract.ReadingEntry.COLUMN_TIME + ">=?  AND "
+                        + SensorReadingContract.ReadingEntry.COLUMN_TIME + "<?";
 
                 String[] selectionArgs = {("" + minTime), ("" + maxTime)};
 
@@ -694,15 +673,16 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
 
-            Log.v(LOG_TAG, "timeStampSensorReadingLoader: onLoadFinished ");
-
             Bundle b = c.getExtras();
 
             CursorLoader p = (CursorLoader) loader;
             String[] selArgs = p.getSelectionArgs();
             String timeStamp = selArgs[0];
 
+            //Retrieves the unique sensor ids of the sensors of interest, in this case, the
+            //accelerometer and the gyroscope.
             ArrayList<Integer> selectedSensorID = getSelectedSensorID();
+
             String[] sensorReadings = new String[selectedSensorID.size()];
 
             FileWriter fw2 = null;
@@ -723,16 +703,11 @@ public class MainActivity extends AppCompatActivity {
                     for (int i = 0; i < selectedSensorID.size(); i++) {
 
                         values += sensorReadings[i] + ",";
-//                        values += sensorReadings[i];
-
                     }
 
 
+                    //This is the final .csv row form of the sample.
                     String sample = (Long.parseLong(timeStamp.trim()) - timeStampReference) + "," + values;
-
-                    Log.v(LOG_TAG, "timeStampSensorReadingLoader sample:  " + sampleTimeStampsIterator);
-                    Log.v(LOG_TAG, "sample:  " + sample);
-
                     sampleDataset.add(sample);
 
                 } else {
@@ -752,7 +727,8 @@ public class MainActivity extends AppCompatActivity {
             if (sampleTimeStampsIterator == (sampleTimeStamps.size() - 1)) {
 
                 sampleTimeStampsIterator = 0;
-                createSampleBasedCSV();
+                makePrediction();
+
                 //Save datapoint loader destroyed, so that if user comes back from
                 //CSV file viewer, it does not create a new one
                 getLoaderManager().destroyLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER);
@@ -768,7 +744,7 @@ public class MainActivity extends AppCompatActivity {
                 bundle.putLong("minTime", minTime);
                 bundle.putLong("maxTime", maxTime);
 
-                // Kick off the  loader
+                // Kicks off the  loader
                 getLoaderManager().restartLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER, bundle, timeStampSensorReadingLoader);
 
             }
@@ -785,6 +761,12 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
+    /**
+     * This method adds the gyroscope and accelerometer sensor unique ids as Integers into a an
+     *  ArrayList<Integer>.
+     *
+     * @return  ArrayList<Integer> ArrayList containing the unique ids of the sensors of interest.
+     */
     private ArrayList<Integer> getSelectedSensorID() {
 
         ArrayList<Integer> result = new ArrayList<>();
@@ -796,7 +778,13 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-
+    /**
+     * This method creates an array of strings containing each feature of a sample.
+     *
+     * @param c Result Cursor with sensors data retrieved from the reading_table SQLite Database.
+     * @param  selectedSensorID ArrayList<Integer> containing the unique ids of the sensors of interest. (Accelerometer and Gyroscope)
+     * @return  String[]  Containing the features of the samples in c.
+     */
     private String[] getSensorReadings(Cursor c, ArrayList<Integer> selectedSensorID) {
 
         String[] answer = new String[selectedSensorID.size()];
@@ -811,6 +799,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /**
+     * This method retrieves the samples from a cursor of a selected sensor.
+     *
+     * @param c Result Cursor with sensors data retrieved from the reading_table SQLite Database.
+     * @param  sensorID Unique id of the sensor.
+     * @return  String  Containing the features of the samples in c in a .csv format.
+     */
     private String getReading(Cursor c, Integer sensorID) {
 
         /*QUERY
@@ -826,19 +821,7 @@ public class MainActivity extends AppCompatActivity {
         int rowcount = c.getCount();
         c.moveToFirst();
 
-        String reading;
-
-        Log.v(LOG_TAG, "getReading sensorID: " + sensorID);
-
-        if (sensorID == Constants.ACCELEROMETER_SENSOR_ID || sensorID == Constants.GYROSCOPE_SENSOR_ID) {
-
-            reading = "NaN,NaN,NaN";
-
-        } else {
-
-            reading = "NaN";
-
-        }
+        String reading = null;
 
         for (int i = 0; i < rowcount; i++) {
 
@@ -858,33 +841,14 @@ public class MainActivity extends AppCompatActivity {
         return reading;
     }
 
-
-    private void createSampleBasedCSV() {
-
-        File outputDirectory = getOutputDirectory();
-        String srLabel = "sample.csv";
-        File saveFile = getCsvOutputFile(outputDirectory, srLabel);
-
-        try {
-            FileWriter fw = new FileWriter(saveFile);
-            BufferedWriter bw = new BufferedWriter(fw);
+    /**
+     * This method creates a .csv file containing the sampleDataset info. The output file
+     * is stored in the MovementRecognizers root output directory.
+     */
+    private void makePrediction() {
 
 
-            for (int i = 0; i < sampleDataset.size(); i++) {
-
-                bw.write(sampleDataset.get(i));
-                bw.newLine();
-            }
-
-            bw.flush();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            Log.e(LOG_TAG, "FileWriter IOException: " + e.toString());
-        }
-
-        Log.w(LOG_TAG, "Datapoint Exported Successfully.");
-
+        //Once the .csv file has been created,
         ArrayList<String> sample = formatSampleForSVM();
         svm_node[] test = new svm_node[sample.size()];
 
@@ -905,6 +869,7 @@ public class MainActivity extends AppCompatActivity {
         String predictionText;
 
 
+
         if (prediction == 0.0) {
             predictionText = "UP";
             dwnIV.setVisibility(View.GONE);
@@ -921,6 +886,11 @@ public class MainActivity extends AppCompatActivity {
         //predictionTextView.setBackgroundColor(backgroundColor);
         predictionTextView.setText(predictionText);
 
+
+        sampleButton.setEnabled(true);
+        sampleButton.setChecked(false);
+
+
         showLoadingView(false);
 
         //If SaveDatapoint button is clicked while MSBand still connected, it saves the
@@ -932,13 +902,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private File getCsvOutputFile(File dir, String filename) {
 
-        return new File(dir, filename);
-    }
-
+    /**
+     * This method pre processes the raw data stored in sampleDataset in order to be tested on the
+     * pre trained SVM model. The output ArrayList<String> contains a list of all features collected
+     * by the gyroscope and accelerometer during the TIMER_DURATION period.
+     *
+     * First it iterates thru all the records made during the IMER_DURATION seconds, then it concatenate them
+     * into the output ArrayList<String>.
+     *
+     * @return  ArrayList<String>  Containing the features of the sample in the proper format to be input to the svm model.
+     */
     private ArrayList<String> formatSampleForSVM() {
 
+        //Verify sample size. If is smaller that SVM_SAMPLE_SIZE, 0 values are concatenated. Otherwise, a random
+        //selection of features are deleted until the sample fit the right size.
         if (sampleDataset.size() > SVM_SAMPLE_SIZE) {
 
             int randomNumbers = sampleDataset.size() - SVM_SAMPLE_SIZE;
@@ -967,8 +945,6 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-
-        Log.v(LOG_TAG, "sampleDataset.size() : " + sampleDataset.size());
 
 
         ArrayList<ArrayList<String>> tokenizedSampleDataset = new ArrayList<>();
@@ -1005,10 +981,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private ArrayList<Integer> getIndexToDelete(int randomNumbers) {
 
-        Log.v(LOG_TAG, "getIndexToDelete");
-        //101	115	56	9	62	23	35	113	19	88	39	53	12	7	94	8	108	42	46	37	4	74	36
+
+    /**
+     * This method defines the features indexes within the sampleDataset to be deleted in case the sampleDatasets' sample size is greater
+     * than the SVM_SAMPLE_SIZE and return them as a ArrayList<Integer>.
+     *
+     * The indexes are chosen randomly.
+     *
+     * @param randomNumbers  The output ArrayList<Integer> size.
+     *                       Corresponds to the difference between the SVM_SAMPLE_SIZE and the sampleDataset size.
+     * @return   ArrayList<Integer>  Containing the randomly selected indexes of the features to be deleted to fit the SVM model input size.
+     */
+    private ArrayList<Integer> getIndexToDelete(int randomNumbers) {
 
         ArrayList<Integer> indexToDelete = new ArrayList<>();
 

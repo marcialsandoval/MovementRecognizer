@@ -31,9 +31,6 @@ public class Constants {
     public static final String AMBIENT_LIGHT = "com.mars_skyrunner.myband.AMBIENT_LIGHT";
     public static final String DISTANCE = "com.mars_skyrunner.myband.DISTANCE";
 
-
-
-
     public static final int HEART_RATE_AQUIRING = 1;
     public static final int HEART_RATE_LOCKED = 2;
 
@@ -51,12 +48,7 @@ public class Constants {
     public static final int SKIN_TEMPERATURE_SENSOR_ID = 12;
     public static final int UV_LEVEL_SENSOR_ID = 13;
     public static final int BAND_CONTACT_SENSOR_ID = 14;
-
-
-
-
     public static final int BAND_STATUS_SENSOR_ID = 15;
-
 
     public static final String HEART_RATE_SENSOR_LABEL =  "heart rate";
     public static final String RR_INTERVAL_SENSOR_LABEL = "rr interval";
