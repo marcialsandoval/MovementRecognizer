@@ -8,10 +8,12 @@ MovementRecognizer is an Android OS project built to recognize human movements w
 As a pre-requisite, ensure your Microsoft Band 2 is configured for use on your android device.
 
 Once the Microsoft Band 2 is bounded via bluetooth, the user needs to wear it using the position shown on the next image.
+
 ![bandPositionSmall](https://user-images.githubusercontent.com/61889565/92423971-d955de00-f137-11ea-970f-2356c3f950de.jpg)
 
 ## Movements to recognize
 For now, two different movements are recognized by the app: "Up" and "Down" . Both examples are shown on the following image:
+
 ![movementsSmall](https://user-images.githubusercontent.com/61889565/92424924-8cbfd200-f13a-11ea-99e3-c8de8693f26e.png)
 
 ## Use
