@@ -115,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
         //Using the training dataset previously saved on the root directory, a SVM Model is trained and retrieved.
         model = getMovementModel(dir);
 
+        //Initializes global variables
         loaderTV = findViewById(R.id.loader_tv);
         predictionTextView = (TextView) findViewById(R.id.prediction);
         upIV = findViewById(R.id.arm_up_iv);
@@ -122,28 +123,32 @@ public class MainActivity extends AppCompatActivity {
         clockIV = findViewById(R.id.clock_iv);
         clockTV = findViewById(R.id.minutes);
 
-        Log.v(LOG_TAG, "MODEL TRAINED");
-
         sampleButton = (ToggleButton) findViewById(R.id.sample_btn);
         sampleButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
+                //Only if the bands connection value is 'CONNECTED', the sampling can be performed.
                 if (bandConnectionState) {
-                    upIV.setVisibility(View.GONE);
-                    dwnIV.setVisibility(View.GONE);
 
+                    //Cancels the use of the sampling button until the recognition has been made.
+                    sampleButton.setEnabled(false);
+
+                    //Shows timer
                     clockIV.setVisibility(View.GONE);
                     clockTV.setVisibility(View.VISIBLE);
 
-                    sampleButton.setEnabled(false);
-
-                    showLoadingView(true);
-                    loaderTV.setText("sampling...");
+                    //Resets screen
+                    upIV.setVisibility(View.GONE);
+                    dwnIV.setVisibility(View.GONE);
                     predictionTextView.setText("");
-
-                    Log.v(LOG_TAG, "sampleButton setOnClickListener");
                     clockTV.setText("" + TIMER_DURATION);
+                    loaderTV.setText("sampling...");
+
+                    //shows loader
+                    showLoadingView(true);
+
+                    //Initializes timer
                     task = new FutureTask(new CounterCallable(MainActivity.this, 0, TIMER_DURATION, 1));
 
                     ExecutorService pool = Executors.newSingleThreadExecutor();
@@ -163,6 +168,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+/**
+ * Receives {@link CounterCallable} broadcast with the timer value to be desplayed
+ */
     private BroadcastReceiver timeReceiver = new BroadcastReceiver() {
 
         @Override
@@ -202,7 +210,10 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-
+    /**
+     * Receives {@link BandSensorsSubscriptionLoader} broadcast with the Microsoft band 2 communication status
+     * to be displayed
+     */
     private BroadcastReceiver displayVaueReceiver = new BroadcastReceiver() {
 
         @Override
@@ -210,14 +221,15 @@ public class MainActivity extends AppCompatActivity {
 
             String value = intent.getStringExtra(Constants.VALUE);
 
-            Log.v(LOG_TAG, "displayVaueReceiver: value: " + value);
-
+            //If the bands status is CONNECTED, bandConnectionState value is set to true. This
+            //ensures that no sample can be taken if the Microsoft bands 2 communication is well established.
             if (value.equals(ConnectionState.CONNECTED.toString())) {
                 bandConnectionState = true;
             } else {
                 bandConnectionState = false;
             }
 
+            //Shows bands status on screen
             appendToUI(value);
 
         }
