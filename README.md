@@ -31,7 +31,7 @@ In order to make the movement recognition, the user needs to press the 'Sample' 
 
 All the sensors readings are stored locally on the Android device within a SQLite database instance, once the 4 seconds period time end, all the sensor records are concatenated to become a sample on which the pre trained SVM model is going to be tested.    
 
-![PrecessingScreenSmall](https://user-images.githubusercontent.com/61889565/92423975-da870b00-f137-11ea-894c-bd011ef49eff.png)
+![smallProcessing](https://user-images.githubusercontent.com/61889565/92513339-fe446280-f1c4-11ea-8584-56e2e15677eb.png)
 
 ## Result
 As a result, a class representing image and label is shown on screen.
