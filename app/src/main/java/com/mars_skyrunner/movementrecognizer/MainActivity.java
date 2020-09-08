@@ -46,9 +46,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 
+/**
+ * MainActivity Activity recognizes movements using an accelerometer and gyroscope values coming from sensors embedded on a Microsoft Band 2
+ * wrist band. The recognition is made using an offline execution, meaning that the system records the sensor data first using
+ * a SQLite Database. The recognition is performed afterwards, by training a SVM model using the libsvm library by Chih-Chung Chang and Chih-Jen Lin.
+ * @author  Marcial Sandoval Gastelum
+ * @version 1.1
+ * @since   2020-09-08
+ */
 
 public class MainActivity extends AppCompatActivity {
-
 
     private String LOG_TAG = MainActivity.class.getSimpleName();
     public static BandClient client = null;
@@ -61,7 +68,6 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<Long> sampleTimeStamps;
     int sampleTimeStampsIterator;
     private Long timeStampReference;
-    public static String labelPrefix = "up_";
     private ArrayList<String> sampleDataset = new ArrayList<>();
     svm_model model;
     ImageView upIV, dwnIV, clockIV;
@@ -74,7 +80,6 @@ public class MainActivity extends AppCompatActivity {
         inflater.inflate(R.menu.main_menu, menu);
         return true;
 
-
     }
 
     @Override
@@ -82,9 +87,9 @@ public class MainActivity extends AppCompatActivity {
 
         switch (item.getItemId()) {
 
-
             case R.id.refresh:
 
+                //Restart BandSensorsSubscription Asyntask
                 BandSensorsSubscriptionLoader sensortask = new BandSensorsSubscriptionLoader(this);
                 BandSensorsSubscriptionLoader.unregisterListeners();
                 sensortask.execute();
@@ -100,10 +105,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Executes BandSensorsSubscription Asyntask
         BandSensorsSubscriptionLoader sensortask = new BandSensorsSubscriptionLoader(this);
         sensortask.execute();
 
+        //Gets the apps root storage directory.
         File dir = getOutputDirectory();
+
+        //Using the training dataset previously saved on the root directory, a SVM Model is trained and retrieved.
         model = getMovementModel(dir);
 
         loaderTV = findViewById(R.id.loader_tv);
@@ -212,7 +221,7 @@ public class MainActivity extends AppCompatActivity {
                 bandConnectionState = false;
             }
 
-            appendToUI(value, Constants.BAND_STATUS);
+            appendToUI(value);
 
         }
 
@@ -239,11 +248,18 @@ public class MainActivity extends AppCompatActivity {
 
 
     /**
-     * Creates directory to store output files.
+     * This method retrieves the root storage directory from MovementRecognizer app.
+     * If the directory does not exist, it creates it. This is the same directory
+     * on which every output file will be stored.
+     * @return File Containing MovementRecognizer app root storage directory.
      */
     private File getOutputDirectory() {
 
-        File directory = null; // return value
+        File directory = null; // In here, the return value directory file is going to be stored.
+
+        //Checks whether the android device has an external storage, if it does, the root directory
+        //is going to be retrieved/created from there. If it does not, the root directory
+        //is going to be retrieved/created on the internal memory.
 
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
@@ -264,12 +280,25 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * This method trains a support vector machine model. The training dataset is stored previously
+     * on the MovementRecognizer apps root file directory. The svm model training is made using the
+     * the libsvm library by Chih-Chung Chang and Chih-Jen Lin.
+     *
+     * @param dir MovementRecognizer apps root file directory.
+     * @return svm_model Trained SVM model for movement classifying.
+     */
     private svm_model getMovementModel(File dir) {
 
+        //Retrieve train dataset features
         File trainDataFile = new File(dir, "trainDataset.csv");
+        //Maps train dataset features to an arraylist
         ArrayList<ArrayList<String>> trainDataset = getTrainDataset(trainDataFile);
 
+        //Retrieve train dataset labels
         File trainLabelsFile = new File(dir, "trainLabels.csv");
+
+        //Maps train dataset labels to an arraylist
         ArrayList<String> labelsDataset = getTrainLabelsDataset(trainLabelsFile);
 
         int variables = trainDataset.get(0).size();
@@ -321,7 +350,15 @@ public class MainActivity extends AppCompatActivity {
         return model;
     }
 
-
+    /**
+     * This method maps the train dataset features from a .csv file to an Arraylist.
+     * It reads each row from the .csv file and convert it into an ArrayList<String> sample,
+     * each value in this ArrayList<String> form represents a feature of that sample.
+     *
+     * @param trainDataFile .csv file containing the train dataset features.
+     * @return  ArrayList<ArrayList<String>> An arraylist containing each sample from the training
+     * dataset in the form of an Arraylist<String>.
+     */
     private ArrayList<ArrayList<String>> getTrainDataset(File trainDataFile) {
 
         ArrayList<ArrayList<String>> trainDataset = new ArrayList<>();
@@ -354,7 +391,15 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-
+    /**
+     * This method maps the train dataset labels from a .csv file to an Arraylist.
+     * It reads each row from the .csv file and convert it into a String value to be
+     * added to the outputs Arraylist<String>.
+     *
+     * @param trainLabelsFile .csv file containing the train dataset labels.
+     * @return  ArrayList<String> An arraylist containing each samples label from the training
+     * dataset.
+     */
     private ArrayList<String> getTrainLabelsDataset(File trainLabelsFile) {
 
         ArrayList<String> trainLabelsDataset = new ArrayList<>();
@@ -382,8 +427,12 @@ public class MainActivity extends AppCompatActivity {
         return trainLabelsDataset;
     }
 
-
-    private void appendToUI(String value, String sensor) {
+    /**
+     * This method displays a message on the band status text view.
+     *
+     * @param value Message to be displayed.
+     */
+    private void appendToUI(String value) {
 
         TextView textView = (TextView) findViewById(R.id.stts);
         textView.setText(value);

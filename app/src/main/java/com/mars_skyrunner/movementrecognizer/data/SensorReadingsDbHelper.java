@@ -9,7 +9,7 @@ import com.mars_skyrunner.movementrecognizer.data.SensorReadingContract.ReadingE
 
 
 /**
- * Database helper for MyBand app. Manages record database creation and version management.
+ * Database helper for MovementRecognizer app. Manages record database creation and version management.
  */
 public class SensorReadingsDbHelper extends SQLiteOpenHelper {
 
@@ -19,7 +19,7 @@ public class SensorReadingsDbHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "readings.db";
 
     /**
-     * Database version. If you change the database schema, you must increment the database version.
+     * Database version.
      */
     private static final int DATABASE_VERSION = 1;
 
@@ -38,6 +38,7 @@ public class SensorReadingsDbHelper extends SQLiteOpenHelper {
      */
     @Override
     public void onCreate(SQLiteDatabase db) {
+
         // Create a String that contains the SQL statement to create the records table
         String SQL_CREATE_SENSOR_READING_TABLE =  "CREATE TABLE " + ReadingEntry.TABLE_NAME + " ("
                 + ReadingEntry._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -45,8 +46,6 @@ public class SensorReadingsDbHelper extends SQLiteOpenHelper {
                 + ReadingEntry.COLUMN_SENSOR_ID + " TEXT NOT NULL, "
                 + ReadingEntry.COLUMN_SAMPLE_RATE + " TEXT NOT NULL, "
                 + ReadingEntry.COLUMN_SENSOR_VALUE + " TEXT NOT NULL )";
-
-        Log.w(LOG_TAG,"SQL_CREATE_SENSOR_READING_TABLE: " + SQL_CREATE_SENSOR_READING_TABLE);
 
         // Execute the SQL statement
         db.execSQL(SQL_CREATE_SENSOR_READING_TABLE);
