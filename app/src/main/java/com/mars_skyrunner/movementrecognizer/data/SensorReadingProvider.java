@@ -12,7 +12,7 @@ import android.util.Log;
 import com.mars_skyrunner.movementrecognizer.data.SensorReadingContract.ReadingEntry;
 
 /**
- * {@link ContentProvider} for MyBand app.
+ * {@link ContentProvider} for MovementRecognizer app.
  */
 public class SensorReadingProvider extends ContentProvider {
 
@@ -31,17 +31,6 @@ public class SensorReadingProvider extends ContentProvider {
      */
     private static final int READING_ID = 101;
 
-//    /**
-//     * URI matcher code for the content URI for the readings table
-//     */
-//    private static final int MASTER_READINGS = 102;
-//
-//    /**
-//     * URI matcher code for the content URI for a single reading in the readings table
-//     */
-//    private static final int MASTER_READING_ID = 103;
-
-
     /**
      * UriMatcher object to match a content URI to a corresponding code.
      * The input passed into the constructor represents the code to return for the root URI.
@@ -53,9 +42,6 @@ public class SensorReadingProvider extends ContentProvider {
     static {
         sUriMatcher.addURI(SensorReadingContract.CONTENT_AUTHORITY, SensorReadingContract.PATH_READINGS, READINGS);
         sUriMatcher.addURI(SensorReadingContract.CONTENT_AUTHORITY, SensorReadingContract.PATH_READINGS + "/#", READING_ID);
-//        sUriMatcher.addURI(SensorReadingContract.CONTENT_AUTHORITY, SensorReadingContract.PATH_MASTER_READINGS, MASTER_READINGS);
-//        sUriMatcher.addURI(SensorReadingContract.CONTENT_AUTHORITY, SensorReadingContract.PATH_MASTER_READINGS + "/#", MASTER_READING_ID);
-
     }
 
     /**
@@ -73,19 +59,14 @@ public class SensorReadingProvider extends ContentProvider {
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
                         String sortOrder) {
 
-        //Log.w(LOG_TAG, "Cursor query ");
 
         String projectionString = "";
-        //Log.w(LOG_TAG, "projection.length:  " + projection.length);
 
         for(int i = 0; i < projection.length ; i++ ){
 
             projectionString += projection[i] + " , ";
 
         }
-
-
-        //Log.w(LOG_TAG, "projectionString:  " + projectionString);
 
         // Get readable database
         SQLiteDatabase database = mDbHelper.getReadableDatabase();
@@ -98,30 +79,24 @@ public class SensorReadingProvider extends ContentProvider {
         switch (match) {
             
             case READINGS:
-
-                Log.w(LOG_TAG, "sUriMatcher:  READINGS");
-
-
                 // For the readings code, query the readings table directly with the given
                 // projection, selection, selection arguments, and sort order. The cursor
                 // could contain multiple rows of the readings table.
+
                 cursor = database.query(ReadingEntry.TABLE_NAME, projection, selection, selectionArgs,
                         null, null, sortOrder);
                 break;
                 
             case READING_ID:
-
-
-                Log.w(LOG_TAG, "sUriMatcher:  READING_ID");
-
                 // For the RECORD_ID code, extract out the ID from the URI.
-                // For an example URI such as "content://com.mars_skyrunner.myband/readings/3",
+                // For an example URI such as "content://com.mars_skyrunner.movementrecognizer/readings/3",
                 // the selection will be "_id=?" and the selection argument will be a
                 // String array containing the actual ID of 3 in this case.
                 //
                 // For every "?" in the selection, we need to have an element in the selection
                 // arguments that will fill in the "?". Since we have 1 question mark in the
                 // selection, we have 1 String in the selection arguments' String array.
+
                 selection = ReadingEntry._ID + "=?";
                 selectionArgs = new String[]{String.valueOf(ContentUris.parseId(uri))};
 
@@ -130,29 +105,6 @@ public class SensorReadingProvider extends ContentProvider {
                 cursor = database.query(ReadingEntry.TABLE_NAME, projection, selection, selectionArgs,
                         null, null, sortOrder);
                 break;
-//
-//            case MASTER_READINGS:
-//
-//                Log.w(LOG_TAG, "sUriMatcher:  MASTER_READINGS");
-//
-//                // For the readings code, query the readings table directly with the given
-//                // projection, selection, selection arguments, and sort order. The cursor
-//                // could contain multiple rows of the readings table.
-//                cursor = database.query(ReadingEntry.MASTER_TABLE_NAME, projection, selection, selectionArgs,
-//                        null, null, sortOrder);
-//                break;
-//
-//            case MASTER_READING_ID:
-//                Log.w(LOG_TAG, "sUriMatcher:  MASTER_READING_ID");
-//
-//                selection = ReadingEntry._ID + "=?";
-//                selectionArgs = new String[]{String.valueOf(ContentUris.parseId(uri))};
-//
-//                cursor = database.query(ReadingEntry.MASTER_TABLE_NAME, projection, selection, selectionArgs,
-//                        null, null, sortOrder);
-//                break;
-
-
             default:
                 throw new IllegalArgumentException("Cannot query unknown URI " + uri);
         }
@@ -172,7 +124,6 @@ public class SensorReadingProvider extends ContentProvider {
         
         switch (match) {
             case READINGS:
-//            case MASTER_READINGS:
                 Log.w(LOG_TAG,"insert readings/master_readings");
                 return insertReading(uri, contentValues);
 
@@ -188,43 +139,6 @@ public class SensorReadingProvider extends ContentProvider {
     private Uri insertReading(Uri uri, ContentValues values) {
 
         Log.w(LOG_TAG,"insertReading : ContentValues: " + values.toString());
-//
-//        // Check that the year is not null
-//        String year = values.getAsString(ReadingEntry.COLUMN_READING_YEAR);
-//        if (year == null) {
-//            throw new IllegalArgumentException("SensorReading requires a year");
-//        }
-//
-//        // Check that the month is not null
-//        String month = values.getAsString(ReadingEntry.COLUMN_READING_MONTH);
-//        if (month == null) {
-//            throw new IllegalArgumentException("SensorReading requires a month");
-//        }
-//
-//        // Check that the day is not null
-//        String day = values.getAsString(ReadingEntry.COLUMN_READING_DAY);
-//        if (day == null) {
-//            throw new IllegalArgumentException("SensorReading requires a day");
-//        }
-//
-//        // Check that the hour is not null
-//        String hh = values.getAsString(ReadingEntry.COLUMN_READING_HH);
-//        if (hh == null) {
-//            throw new IllegalArgumentException("SensorReading requires an hour");
-//        }
-//
-//        // Check that the MINUTES is not null
-//        String mm = values.getAsString(ReadingEntry.COLUMN_READING_MM);
-//        if (mm == null) {
-//            throw new IllegalArgumentException("SensorReading requires minutes");
-//        }
-//
-//        // Check that the seconds is not null
-//        String ss = values.getAsString(ReadingEntry.COLUMN_READING_SS);
-//        if (ss == null) {
-//            throw new IllegalArgumentException("SensorReading requires seconds");
-//        }
-//
 
         // Check that the sensorName is not null
         String sensorName = values.getAsString(ReadingEntry.COLUMN_SENSOR_ID);
@@ -238,7 +152,6 @@ public class SensorReadingProvider extends ContentProvider {
             throw new IllegalArgumentException("SensorReading requires a sensor value");
         }
 
-
         // Check that the sensorName is not null
         String sampleRate = values.getAsString(ReadingEntry.COLUMN_SAMPLE_RATE);
         if (sampleRate == null) {
@@ -249,6 +162,7 @@ public class SensorReadingProvider extends ContentProvider {
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
         String tableName = "";
+
         // Figure out if the URI matcher can match the URI to a specific code
         int match = sUriMatcher.match(uri);
         switch (match) {
@@ -257,12 +171,6 @@ public class SensorReadingProvider extends ContentProvider {
             case READING_ID:
                 tableName = ReadingEntry.TABLE_NAME;
                 break;
-
-//            case MASTER_READINGS:
-//            case MASTER_READING_ID:
-////                tableName = ReadingEntry.MASTER_TABLE_NAME;
-//                break;
-
 
             default:
                 throw new IllegalArgumentException("Cannot query unknown URI " + uri);
@@ -282,7 +190,6 @@ public class SensorReadingProvider extends ContentProvider {
         getContext().getContentResolver().notifyChange(uri, null);
 
         // Return the new URI with the ID (of the newly inserted row) appended at the end
-
         Uri answer = ContentUris.withAppendedId(uri, id);
         Log.w(LOG_TAG, "Record Uri: " + answer);
 
@@ -296,16 +203,12 @@ public class SensorReadingProvider extends ContentProvider {
         final int match = sUriMatcher.match(uri);
         switch (match) {
             case READINGS:
-//            case MASTER_READINGS:
                 return updateSensorReading(uri, contentValues, selection, selectionArgs);
 
             case READING_ID:
-//            case MASTER_READING_ID:
                 selection = ReadingEntry._ID + "=?";
                 selectionArgs = new String[]{String.valueOf(ContentUris.parseId(uri))};
                 return updateSensorReading(uri, contentValues, selection, selectionArgs);
-
-
 
             default:
                 throw new IllegalArgumentException("Update is not supported for " + uri);
@@ -320,8 +223,6 @@ public class SensorReadingProvider extends ContentProvider {
     private int updateSensorReading(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
         // If the {@link ReadingEntry#COLUMN_READING_DATE} key is present,
         // check that the date value is not null.
-
-
 
         // If the {@link ReadingEntry#_COLUMN_SENSOR_ID} key is present,
         // check that the time text is not null.
@@ -360,6 +261,7 @@ public class SensorReadingProvider extends ContentProvider {
 
 
         String tableName = "";
+
         // Figure out if the URI matcher can match the URI to a specific code
         int match = sUriMatcher.match(uri);
         switch (match) {
@@ -368,12 +270,6 @@ public class SensorReadingProvider extends ContentProvider {
             case READING_ID:
                 tableName = ReadingEntry.TABLE_NAME;
                 break;
-//
-//            case MASTER_READINGS:
-//            case MASTER_READING_ID:
-//                tableName = ReadingEntry.MASTER_TABLE_NAME;
-//                break;
-
 
             default:
                 throw new IllegalArgumentException("Cannot query unknown URI " + uri);
@@ -394,6 +290,7 @@ public class SensorReadingProvider extends ContentProvider {
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
+
         // Get writeable database
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
@@ -416,19 +313,6 @@ public class SensorReadingProvider extends ContentProvider {
                 rowsDeleted = database.delete(ReadingEntry.TABLE_NAME, selection, selectionArgs);
                 break;
 
-//            case MASTER_READINGS:
-//                // Delete all rows that match the selection and selection args
-//                rowsDeleted = database.delete(ReadingEntry.MASTER_TABLE_NAME, selection, selectionArgs);
-//                break;
-//
-//            case MASTER_READING_ID:
-//                // Delete a single row given by the ID in the URI
-//                selection = ReadingEntry._ID + "=?";
-//                selectionArgs = new String[]{String.valueOf(ContentUris.parseId(uri))};
-//                rowsDeleted = database.delete(ReadingEntry.MASTER_TABLE_NAME, selection, selectionArgs);
-//                break;
-
-
             default:
                 throw new IllegalArgumentException("Deletion is not supported for " + uri);
         }
@@ -448,11 +332,9 @@ public class SensorReadingProvider extends ContentProvider {
         final int match = sUriMatcher.match(uri);
         switch (match) {
 
-//            case MASTER_READINGS:
             case READINGS:
                 return ReadingEntry.CONTENT_LIST_TYPE;
 
-//            case MASTER_READING_ID:
             case READING_ID:
                 return ReadingEntry.CONTENT_ITEM_TYPE;
 

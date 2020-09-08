@@ -6,7 +6,7 @@ import android.provider.BaseColumns;
 
 
 /**
- * API Contract for SensorReading Database for MyBand app.
+ * API Contract for SensorReading Database for MovementRecognizer app.
  */
 public  final class SensorReadingContract {
 
@@ -28,13 +28,11 @@ public  final class SensorReadingContract {
 
     /**
      * Possible path (appended to base content URI for possible URI's)
-     * For instance, content://com.mars_skyrunner.myband/readings/ is a valid path for
+     * For instance, content://com.mars_skyrunner.movementrecognizer/readings/ is a valid path for
      * looking at SensorReading data.
      */
 
     public static final String PATH_READINGS = "readings";
-
-//    public static final String PATH_MASTER_READINGS = "master_readings";
 
     /**
      * Inner class that defines constant values for the SensorReadings database table.
@@ -45,11 +43,6 @@ public  final class SensorReadingContract {
 
         /** The content URI to access the sensor data in the provider */
         public static final Uri CONTENT_URI = Uri.withAppendedPath(BASE_CONTENT_URI, PATH_READINGS);
-
-//        /** The content URI to access the sensor reading data in the provider */
-//        public static final Uri MASTER_CONTENT_URI = Uri.withAppendedPath(BASE_CONTENT_URI, PATH_MASTER_READINGS);
-
-
 
         /**
          * The MIME type of the {@link #CONTENT_URI} for a list of records.
@@ -63,16 +56,8 @@ public  final class SensorReadingContract {
         public static final String CONTENT_ITEM_TYPE =
                 ContentResolver.CURSOR_ITEM_BASE_TYPE + "/" + CONTENT_AUTHORITY + "/" + PATH_READINGS;
 
-
-
         /** Name of database table for sensor readings */
         public final static String TABLE_NAME = "readings_table";
-
-
-
-//        /** Name of master database table for sensor readings */
-//        public final static String MASTER_TABLE_NAME = "master_readings_table";
-//
 
         /**
          * Unique ID number for the SensorReading (only for use in the database table).
@@ -84,7 +69,7 @@ public  final class SensorReadingContract {
 
 
         /**
-         * Day of the SensorReading.
+         * Timestamp of the SensorReading.
          *
          * Type: TEXT
          */
@@ -92,7 +77,7 @@ public  final class SensorReadingContract {
 
 
         /**
-         * Name of the Sensor from the SensorReading.
+         * Sensorid from the SensorReading.
          *
          * Type: TEXT
          */
