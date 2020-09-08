@@ -50,9 +50,10 @@ import java.util.concurrent.FutureTask;
  * MainActivity Activity recognizes movements using an accelerometer and gyroscope values coming from sensors embedded on a Microsoft Band 2
  * wrist band. The recognition is made using an offline execution, meaning that the system records the sensor data first using
  * a SQLite Database. The recognition is performed afterwards, by training a SVM model using the libsvm library by Chih-Chung Chang and Chih-Jen Lin.
- * @author  Marcial Sandoval Gastelum
+ *
+ * @author Marcial Sandoval Gastelum
  * @version 1.1
- * @since   2020-09-08
+ * @since 2020-09-08
  */
 
 public class MainActivity extends AppCompatActivity {
@@ -168,9 +169,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-/**
- * Receives {@link CounterCallable} broadcast with the timer value to be desplayed
- */
+    /**
+     * Receives {@link CounterCallable} broadcast with the timer value to be desplayed
+     */
     private BroadcastReceiver timeReceiver = new BroadcastReceiver() {
 
         @Override
@@ -260,6 +261,7 @@ public class MainActivity extends AppCompatActivity {
      * This method retrieves the root storage directory from MovementRecognizer app.
      * If the directory does not exist, it creates it. This is the same directory
      * on which every output file will be stored.
+     *
      * @return File Containing MovementRecognizer app root storage directory.
      */
     private File getOutputDirectory() {
@@ -365,7 +367,7 @@ public class MainActivity extends AppCompatActivity {
      * each value in this ArrayList<String> form represents a feature of that sample.
      *
      * @param trainDataFile .csv file containing the train dataset features.
-     * @return  ArrayList<ArrayList<String>> An arraylist containing each sample from the training
+     * @return ArrayList<ArrayList < String>> An arraylist containing each sample from the training
      * dataset in the form of an Arraylist<String>.
      */
     private ArrayList<ArrayList<String>> getTrainDataset(File trainDataFile) {
@@ -406,7 +408,7 @@ public class MainActivity extends AppCompatActivity {
      * added to the outputs Arraylist<String>.
      *
      * @param trainLabelsFile .csv file containing the train dataset labels.
-     * @return  ArrayList<String> An arraylist containing each samples label from the training
+     * @return ArrayList<String> An arraylist containing each samples label from the training
      * dataset.
      */
     private ArrayList<String> getTrainLabelsDataset(File trainLabelsFile) {
@@ -601,7 +603,6 @@ public class MainActivity extends AppCompatActivity {
             }
 
 
-
             timeStampReference = sampleTimeStamps.get(0);
 
             for (int i = 0; i < sampleTimeStamps.size(); i++) {
@@ -775,9 +776,9 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * This method adds the gyroscope and accelerometer sensor unique ids as Integers into a an
-     *  ArrayList<Integer>.
+     * ArrayList<Integer>.
      *
-     * @return  ArrayList<Integer> ArrayList containing the unique ids of the sensors of interest.
+     * @return ArrayList<Integer> ArrayList containing the unique ids of the sensors of interest.
      */
     private ArrayList<Integer> getSelectedSensorID() {
 
@@ -793,9 +794,9 @@ public class MainActivity extends AppCompatActivity {
     /**
      * This method creates an array of strings containing each feature of a sample.
      *
-     * @param c Result Cursor with sensors data retrieved from the reading_table SQLite Database.
-     * @param  selectedSensorID ArrayList<Integer> containing the unique ids of the sensors of interest. (Accelerometer and Gyroscope)
-     * @return  String[]  Containing the features of the samples in c.
+     * @param c                Result Cursor with sensors data retrieved from the reading_table SQLite Database.
+     * @param selectedSensorID ArrayList<Integer> containing the unique ids of the sensors of interest. (Accelerometer and Gyroscope)
+     * @return String[]  Containing the features of the samples in c.
      */
     private String[] getSensorReadings(Cursor c, ArrayList<Integer> selectedSensorID) {
 
@@ -814,9 +815,9 @@ public class MainActivity extends AppCompatActivity {
     /**
      * This method retrieves the samples from a cursor of a selected sensor.
      *
-     * @param c Result Cursor with sensors data retrieved from the reading_table SQLite Database.
-     * @param  sensorID Unique id of the sensor.
-     * @return  String  Containing the features of the samples in c in a .csv format.
+     * @param c        Result Cursor with sensors data retrieved from the reading_table SQLite Database.
+     * @param sensorID Unique id of the sensor.
+     * @return String  Containing the features of the samples in c in a .csv format.
      */
     private String getReading(Cursor c, Integer sensorID) {
 
@@ -854,13 +855,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * This method creates a .csv file containing the sampleDataset info. The output file
-     * is stored in the MovementRecognizers root output directory.
+     * This method perform the movement recognition using the pre trianed SVM model.
      */
     private void makePrediction() {
 
-
-        //Once the .csv file has been created,
         ArrayList<String> sample = formatSampleForSVM();
         svm_node[] test = new svm_node[sample.size()];
 
@@ -877,36 +875,28 @@ public class MainActivity extends AppCompatActivity {
         double prediction = svm.svm_predict(model, test);
         Log.w(LOG_TAG, "prediction: " + prediction);
 
-        int backgroundColor;
         String predictionText;
-
-
 
         if (prediction == 0.0) {
             predictionText = "UP";
             dwnIV.setVisibility(View.GONE);
             upIV.setVisibility(View.VISIBLE);
-            //backgroundColor = getResources().getColor(R.color.up);
         } else {
             predictionText = "DOWN";
             dwnIV.setVisibility(View.VISIBLE);
             upIV.setVisibility(View.GONE);
-            //backgroundColor = getResources().getColor(R.color.down);
         }
 
-
-        //predictionTextView.setBackgroundColor(backgroundColor);
         predictionTextView.setText(predictionText);
-
 
         sampleButton.setEnabled(true);
         sampleButton.setChecked(false);
-
 
         showLoadingView(false);
 
         //If SaveDatapoint button is clicked while MSBand still connected, it saves the
         //newest values
+
         sampleDataset.clear();
 
         getLoaderManager().destroyLoader(Constants.TIME_STAMP_SENSOR_READING_LOADER);
@@ -914,16 +904,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     /**
      * This method pre processes the raw data stored in sampleDataset in order to be tested on the
      * pre trained SVM model. The output ArrayList<String> contains a list of all features collected
      * by the gyroscope and accelerometer during the TIMER_DURATION period.
-     *
+     * <p>
      * First it iterates thru all the records made during the IMER_DURATION seconds, then it concatenate them
      * into the output ArrayList<String>.
      *
-     * @return  ArrayList<String>  Containing the features of the sample in the proper format to be input to the svm model.
+     * @return ArrayList<String>  Containing the features of the sample in the proper format to be input to the svm model.
      */
     private ArrayList<String> formatSampleForSVM() {
 
@@ -957,10 +946,7 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-
-
         ArrayList<ArrayList<String>> tokenizedSampleDataset = new ArrayList<>();
-
 
         for (int i = 0; i < sampleDataset.size(); i++) {//SAMPLES
 
@@ -993,17 +979,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
-
     /**
      * This method defines the features indexes within the sampleDataset to be deleted in case the sampleDatasets' sample size is greater
      * than the SVM_SAMPLE_SIZE and return them as a ArrayList<Integer>.
-     *
+     * <p>
      * The indexes are chosen randomly.
      *
-     * @param randomNumbers  The output ArrayList<Integer> size.
-     *                       Corresponds to the difference between the SVM_SAMPLE_SIZE and the sampleDataset size.
-     * @return   ArrayList<Integer>  Containing the randomly selected indexes of the features to be deleted to fit the SVM model input size.
+     * @param randomNumbers The output ArrayList<Integer> size.
+     *                      Corresponds to the difference between the SVM_SAMPLE_SIZE and the sampleDataset size.
+     * @return ArrayList<Integer>  Containing the randomly selected indexes of the features to be deleted to fit the SVM model input size.
      */
     private ArrayList<Integer> getIndexToDelete(int randomNumbers) {
 

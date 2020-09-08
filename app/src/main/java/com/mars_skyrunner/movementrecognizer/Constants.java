@@ -66,8 +66,6 @@ public class Constants {
     public static final String UV_LEVEL_SENSOR_LABEL = "uv";
     public static final String BAND_STATUS_SENSOR_LABEL = "status";
 
-
-
     public static final String SENSOR = packageName + ".SENSOR";
     public static final String VALUE = packageName + ".VALUE";
     public static final String DISPLAY_VALUE = packageName + ".DISPLAY_VALUE";

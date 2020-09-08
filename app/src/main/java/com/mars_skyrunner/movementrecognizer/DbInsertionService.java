@@ -14,7 +14,6 @@ public class DbInsertionService extends IntentService {
 
 
     private final String LOG_TAG = DbInsertionService.class.getSimpleName();
-    SensorReading sensorReading;
     Context mContext = DbInsertionService.this;
 
     /**
@@ -26,8 +25,6 @@ public class DbInsertionService extends IntentService {
 
     public DbInsertionService() {
         super("DbInsertionService");
-
-        Log.v(LOG_TAG,"DbInsertionService() constructor");
     }
 
     /**
@@ -37,8 +34,6 @@ public class DbInsertionService extends IntentService {
      */
     @Override
     protected void onHandleIntent(Intent intent) {
-
-        //Log.v(LOG_TAG,"onHandleIntent"  );
 
         SensorReading receivedSensor = intent.getParcelableExtra(Constants.SERVICE_EXTRA);
 
@@ -52,10 +47,10 @@ public class DbInsertionService extends IntentService {
         String result = "";
 
         Uri newUri;
+
         // Insert sensorReadings into interval Database
         newUri = mContext.getContentResolver().insert(SensorReadingContract.ReadingEntry.CONTENT_URI, values);
 
-        // Show a toast message depending on whether or not the insertion was successful.
         if (newUri == null) {
 
             result = mContext.getResources().getString(R.string.sensor_data_saving_failed);
@@ -73,21 +68,9 @@ public class DbInsertionService extends IntentService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        //Toast.makeText(this, "service " + extra + " starting", Toast.LENGTH_SHORT).show();
-        Log.v(LOG_TAG,"onStartCommand"  );
 
         SensorReading receivedSensor = intent.getParcelableExtra(Constants.SERVICE_EXTRA);
 
-        Log.v(LOG_TAG,"receivedSensor: " + receivedSensor.getSensorName() );
-
         return super.onStartCommand(intent,flags,startId);
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        //Toast.makeText(this, "service" + extra + " destroy", Toast.LENGTH_SHORT).show();
-        Log.v(LOG_TAG,"onDestroy"  );
-
     }
 }
